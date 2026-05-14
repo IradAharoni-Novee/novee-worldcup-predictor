@@ -1,0 +1,130 @@
+// Prisma schema for the World Cup 2026 Match Predictor.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Auth.js core tables — see https://authjs.dev/getting-started/adapters/prisma
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  isAdmin       Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  predictions   Prediction[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Domain models
+
+enum Stage {
+  GROUP
+  R32
+  R16
+  QF
+  SF
+  THIRD
+  FINAL
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+model Team {
+  id        String  @id @default(cuid())
+  fdId      Int     @unique
+  name      String
+  code      String  @unique
+  flag      String?
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id         String      @id @default(cuid())
+  fdId       Int         @unique
+  stage      Stage
+  group      String?
+  kickoff    DateTime
+  homeTeamId String?
+  awayTeamId String?
+  homeScore  Int?
+  awayScore  Int?
+  status     MatchStatus @default(SCHEDULED)
+  updatedAt  DateTime    @updatedAt
+
+  homeTeam    Team?        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team?        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  predictions Prediction[]
+
+  @@index([kickoff])
+  @@index([stage])
+}
+
+model Prediction {
+  id          String   @id @default(cuid())
+  userId      String
+  matchId     String
+  homeScore   Int
+  awayScore   Int
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

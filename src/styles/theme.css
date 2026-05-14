@@ -1,0 +1,793 @@
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   Design System Theme - Single Source of Truth
+   ==========================================================================
+   Organized in layers following the Figma design system architecture:
+   1. Primitives (@theme) - raw color palettes, fonts, spacing, weights
+   2. Semantic (@theme inline) - purpose-driven aliases referencing primitives
+   3. Component tokens (:root) - per-component tokens referencing semantics
+   4. Shadcn bridge (@theme inline + :root) - maps Shadcn naming to components
+   5. Dark mode (.dark) - theme-specific overrides
+   ========================================================================== */
+
+/* ==========================================================================
+   1. PRIMITIVES - Color Palettes, Fonts, Spacing, Weights
+   ========================================================================== */
+
+@theme {
+  --font-chivo: "Chivo", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-roboto-mono: "Roboto Mono", monospace;
+  --font-noto-serif: "Noto Serif", serif;
+
+  /* Brand */
+  --color-brand-100: #fdfcff;
+  --color-brand-200: #f9f8ff;
+  --color-brand-300: #f2efff;
+  --color-brand-400: #eae3ff;
+  --color-brand-500: #e0d6ff;
+  --color-brand-600: #d4c6ff;
+  --color-brand-700: #c3b0ff;
+  --color-brand-800: #ae92ff;
+  --color-brand-900: #8e55fd;
+  --color-brand-1000: #8149eb;
+
+  /* Slate */
+  --color-slate-100: #ffffff;
+  --color-slate-200: #f9f9fb;
+  --color-slate-300: #f0f0f3;
+  --color-slate-400: #e8e8ec;
+  --color-slate-500: #e0e1e6;
+  --color-slate-600: #d9d9e0;
+  --color-slate-700: #cdced6;
+  --color-slate-800: #b9bbc6;
+  --color-slate-900: #3f4046;
+  --color-slate-1000: #25272d;
+
+  /* Red */
+  --color-red-100: #fcf3f3;
+  --color-red-200: #feebec;
+  --color-red-300: #ffcdce;
+  --color-red-400: #f0a8aa;
+  --color-red-500: #e5484d;
+  --color-red-600: #e32128;
+  --color-red-700: #c5161c;
+  --color-red-800: #a21015;
+  --color-red-900: #7f0b0f;
+  --color-red-1000: #5a0709;
+
+  /* Green */
+  --color-green-100: #f4fbf7;
+  --color-green-200: #e5f5ed;
+  --color-green-300: #d1efe1;
+  --color-green-400: #b1e7cd;
+  --color-green-500: #30a46c;
+  --color-green-600: #258657;
+  --color-green-700: #1b6743;
+  --color-green-800: #12482e;
+  --color-green-900: #092719;
+  --color-green-1000: #010704;
+
+  /* Blue */
+  --color-blue-100: #f1f8fd;
+  --color-blue-200: #e6f4fe;
+  --color-blue-300: #c5e4fc;
+  --color-blue-400: #9cd2fc;
+  --color-blue-500: #0090ff;
+  --color-blue-600: #0079d6;
+  --color-blue-700: #0062ad;
+  --color-blue-800: #004b85;
+  --color-blue-900: #00345c;
+  --color-blue-1000: #001d33;
+
+  /* Amber */
+  --color-amber-100: #fdfaf1;
+  --color-amber-200: #fefbe9;
+  --color-amber-300: #fff7c2;
+  --color-amber-400: #ffee9c;
+  --color-amber-500: #ffc53d;
+  --color-amber-600: #ffb914;
+  --color-amber-700: #eaa400;
+  --color-amber-800: #c28800;
+  --color-amber-900: #996b00;
+  --color-amber-1000: #704f00;
+
+  /* Orange */
+  --color-orange-100: #fdf6f2;
+  --color-orange-200: #ffefd6;
+  --color-orange-300: #ffdfb5;
+  --color-orange-400: #ffc182;
+  --color-orange-500: #f76b15;
+  --color-orange-600: #df5704;
+  --color-orange-700: #b94701;
+  --color-orange-800: #923700;
+  --color-orange-900: #692800;
+  --color-orange-1000: #401800;
+
+  /* Cyan */
+  --color-cyan-100: #f1fbfd;
+  --color-cyan-200: #def7fc;
+  --color-cyan-300: #b5e9f0;
+  --color-cyan-400: #7dcedc;
+  --color-cyan-500: #00a2c7;
+  --color-cyan-600: #00819e;
+  --color-cyan-700: #006075;
+  --color-cyan-800: #003e4d;
+  --color-cyan-900: #001d24;
+  --color-cyan-1000: #001115;
+
+  /* Spacing */
+  --space-0: 0px;
+  --space-050: 2px;
+  --space-100: 4px;
+  --space-150: 6px;
+  --space-200: 8px;
+  --space-250: 10px;
+  --space-300: 12px;
+  --space-400: 16px;
+  --space-500: 20px;
+  --space-600: 24px;
+  --space-700: 28px;
+  --space-800: 32px;
+  --space-900: 36px;
+  --space-1000: 40px;
+  --space-1200: 48px;
+
+  /* Font Scale */
+  --font-scale-1: 10px;
+  --font-scale-2: 12px;
+  --font-scale-3: 14px;
+  --font-scale-4: 16px;
+  --font-scale-5: 20px;
+  --font-scale-6: 24px;
+
+  /* Font Size (Figma t-shirt sizing) */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+  --font-size-4xl: 40px;
+
+  /* Font Weights */
+  --font-weight-light: 200;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 800;
+
+  /* Radius Primitives */
+  --radius-none: 0px;
+  --radius-rounded-xs: 4px;
+  --radius-rounded-sm: 8px;
+  --radius-rounded-md: 12px;
+  --radius-rounded-lg: 16px;
+  --radius-rounded-xl: 20px;
+  --radius-rounded-2xl: 24px;
+  --radius-rounded-3xl: 32px;
+  --radius-rounded-4xl: 40px;
+  --radius-rounded-full: 999px;
+}
+
+/* ==========================================================================
+   2. SEMANTIC TOKENS - Purpose-driven aliases
+   ========================================================================== */
+
+@theme inline {
+  /* Radius */
+  --radius-sm: var(--radius-rounded-xs);
+  --radius-md: var(--radius-rounded-sm);
+  --radius-lg: var(--radius-rounded-md);
+  --radius-xl: var(--radius-rounded-lg);
+  --radius-2xl: var(--radius-rounded-2xl);
+  --radius-3xl: var(--radius-rounded-3xl);
+  --radius-4xl: var(--radius-rounded-4xl);
+  --radius-round: var(--radius-rounded-full);
+
+  /* Font mappings */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-roboto-mono);
+  --font-serif: var(--font-noto-serif);
+
+  /* Background */
+  --color-bg-primary: var(--color-slate-100);
+  --color-bg-secondary: var(--color-slate-200);
+  --color-bg-tertiary: var(--color-slate-300);
+
+  /* Surface */
+  --color-surface-primary: var(--color-slate-100);
+  --color-surface-secondary: var(--color-slate-200);
+  --color-surface-tertiary: var(--color-slate-300);
+  --color-surface-hover: var(--color-brand-300);
+  --color-surface-emphasis: var(--color-slate-300);
+  --color-surface-disabled: var(--color-slate-600);
+  --color-surface-selected: var(--color-brand-300);
+
+  /* Text */
+  --color-text-primary: var(--color-slate-1000);
+  --color-text-secondary: var(--color-slate-900);
+  --color-text-tertiary: var(--color-slate-800);
+  --color-text-inverse: var(--color-slate-100);
+  --color-text-disabled: var(--color-slate-800);
+  --color-text-destructive: var(--color-red-500);
+
+  /* Border */
+  --color-border-primary: var(--color-slate-500);
+  --color-border-secondary: var(--color-slate-300);
+  --color-border-dark: var(--color-slate-700);
+  --color-border-hover: var(--color-brand-900);
+  --color-border-focus: var(--color-brand-900);
+  --color-border-hover-muted: var(--color-brand-600);
+
+  /* Action */
+  --color-action-primary-cta: var(--color-brand-900);
+  --color-action-primary-cta-hover: var(--color-brand-1000);
+  --color-action-secondary-cta: var(--color-slate-300);
+  --color-action-secondary-cta-hover: var(--color-slate-400);
+  --color-action-primary-cta-disabled: var(--color-brand-700);
+
+  /* Accent */
+  --color-accent-info: var(--color-blue-500);
+  --color-accent-success: var(--color-green-500);
+  --color-accent-danger: var(--color-red-500);
+  --color-accent-warning: var(--color-amber-500);
+
+  /* Emphasis */
+  --color-emphasis-link: var(--color-action-primary-cta);
+  --color-emphasis-link-hover: var(--color-action-primary-cta-hover);
+
+  /* Icon */
+  --color-icon-primary: var(--color-slate-1000);
+  --color-icon-secondary: var(--color-slate-900);
+  --color-icon-tertiary: var(--color-slate-800);
+  --color-icon-inverse: var(--color-slate-100);
+
+  /* Category Surface (text on category elements) */
+  --color-category-surface-brand: var(--color-brand-900);
+  --color-category-surface-grey: var(--color-slate-900);
+  --color-category-surface-blue: var(--color-blue-500);
+  --color-category-surface-green: var(--color-green-500);
+  --color-category-surface-red: var(--color-red-600);
+  --color-category-surface-amber: var(--color-amber-700);
+  --color-category-surface-orange: var(--color-orange-500);
+  --color-category-surface-cyan: var(--color-cyan-500);
+
+  /* Category Background */
+  --color-category-bg-brand: var(--color-brand-300);
+  --color-category-bg-brand-hover: var(--color-brand-400);
+  --color-category-bg-grey: var(--color-slate-300);
+  --color-category-bg-grey-hover: var(--color-slate-400);
+  --color-category-bg-blue: var(--color-blue-200);
+  --color-category-bg-blue-hover: var(--color-blue-300);
+  --color-category-bg-green: var(--color-green-200);
+  --color-category-bg-green-hover: var(--color-green-300);
+  --color-category-bg-red: var(--color-red-200);
+  --color-category-bg-red-hover: var(--color-red-300);
+  --color-category-bg-amber: var(--color-amber-300);
+  --color-category-bg-amber-hover: var(--color-amber-400);
+  --color-category-bg-orange: var(--color-orange-200);
+  --color-category-bg-orange-hover: var(--color-orange-300);
+  --color-category-bg-cyan: var(--color-cyan-200);
+  --color-category-bg-cyan-hover: var(--color-cyan-300);
+
+  /* Category Border */
+  --color-category-border-brand: var(--color-brand-500);
+  --color-category-border-brand-hover: var(--color-brand-900);
+  --color-category-border-grey: var(--color-slate-500);
+  --color-category-border-grey-hover: var(--color-slate-900);
+  --color-category-border-blue: var(--color-blue-300);
+  --color-category-border-blue-hover: var(--color-blue-500);
+  --color-category-border-green: var(--color-green-300);
+  --color-category-border-green-hover: var(--color-green-500);
+  --color-category-border-red: var(--color-red-300);
+  --color-category-border-red-hover: var(--color-red-500);
+  --color-category-border-amber: var(--color-amber-400);
+  --color-category-border-amber-hover: var(--color-amber-600);
+  --color-category-border-orange: var(--color-orange-300);
+  --color-category-border-orange-hover: var(--color-orange-500);
+  --color-category-border-cyan: var(--color-cyan-300);
+  --color-category-border-cyan-hover: var(--color-cyan-500);
+}
+
+/* ==========================================================================
+   3. COMPONENT TOKENS - Per-component design tokens referencing semantics
+   Chain: component → semantic → primitive → hex
+   ========================================================================== */
+
+:root {
+  /* ── Button Primary ── */
+  --btn-primary-bg: var(--color-action-primary-cta);
+  --btn-primary-bg-hover: var(--color-action-primary-cta-hover);
+  --btn-primary-bg-disabled: var(--color-action-primary-cta-disabled);
+  --btn-primary-surface: var(--color-text-inverse);
+  --btn-primary-border-focus: var(--color-border-hover);
+  --btn-primary-radius: var(--radius-rounded-sm);
+
+  /* ── Button Secondary ── */
+  --btn-secondary-bg: var(--color-surface-primary);
+  --btn-secondary-bg-hover: var(--color-surface-hover);
+  --btn-secondary-bg-disabled: var(--color-surface-primary);
+  --btn-secondary-surface: var(--color-text-primary);
+  --btn-secondary-surface-disabled: var(--color-text-disabled);
+  --btn-secondary-border: var(--color-border-primary);
+  --btn-secondary-border-hover: var(--color-border-hover);
+  --btn-secondary-border-focus: var(--color-border-focus);
+  --btn-secondary-radius: var(--radius-rounded-sm);
+
+  /* ── Button Ghost ── */
+  --btn-ghost-bg-hover: var(--color-surface-hover);
+  --btn-ghost-bg-active: var(--color-surface-emphasis);
+  --btn-ghost-surface: #1E1F26;
+  --btn-ghost-surface-disabled: #ABACB1;
+  --btn-ghost-surface-hover: var(--color-text-primary);
+
+  /* ── Button Destructive ── */
+  --btn-destructive-bg: var(--color-red-600);
+  --btn-destructive-bg-hover: var(--color-red-700);
+  --btn-destructive-bg-disabled: var(--color-red-400);
+  --btn-destructive-surface: var(--color-text-inverse);
+  --btn-destructive-radius: var(--radius-rounded-sm);
+
+  /* ── Button Filter ── */
+  --btn-filter-bg: var(--color-surface-primary);
+  --btn-filter-bg-hover: var(--color-surface-secondary);
+  --btn-filter-bg-disabled: var(--color-surface-primary);
+  --btn-filter-bg-active: var(--color-surface-selected);
+  --btn-filter-surface: var(--color-text-primary);
+  --btn-filter-surface-disabled: var(--color-text-disabled);
+  --btn-filter-surface-active: var(--color-action-primary-cta);
+  --btn-filter-border: var(--color-border-primary);
+  --btn-filter-border-hover: var(--color-border-hover);
+  --btn-filter-border-active: var(--color-border-hover-muted);
+  --btn-filter-radius: var(--radius-rounded-sm);
+
+  /* ── Table ── */
+  --table-header-bg: var(--color-bg-primary);
+  --table-header-surface: var(--color-text-primary);
+  --table-header-border: var(--color-border-primary);
+  --table-header-radius: var(--radius-rounded-xs);
+  --table-row-bg: var(--color-bg-primary);
+  --table-row-bg-hover: var(--color-surface-hover);
+  --table-head-column-bg-hover: var(--color-surface-secondary);
+  --table-row-surface: var(--color-text-primary);
+  --table-row-border: var(--color-border-primary);
+  --table-row-height: 4rem;
+
+  /* ── Menu ── */
+  --menu-panel-bg: var(--color-surface-primary);
+  --menu-item-bg: var(--color-surface-primary);
+  --menu-item-bg-hover: var(--color-action-secondary-cta-hover);
+  --menu-item-surface: var(--color-text-primary);
+  --menu-item-surface-disabled: var(--color-text-disabled);
+
+  /* ── Navigation ── */
+  --nav-top-bg: var(--color-bg-primary);
+  --nav-top-surface: var(--color-text-primary);
+  --nav-side-bg: var(--color-bg-secondary);
+  --nav-side-border: var(--color-border-primary);
+  --nav-item-bg: var(--color-bg-secondary);
+  --nav-item-bg-hover: var(--color-surface-hover);
+  --nav-item-bg-active: var(--color-surface-tertiary);
+  --nav-item-surface: var(--color-text-primary);
+
+  /* ── Tooltip ── */
+  --tooltip-bg: var(--color-surface-primary);
+  --tooltip-surface: var(--color-text-primary);
+
+  /* ── Input ── */
+  --input-bg: var(--color-surface-primary);
+  --input-bg-hover: var(--color-surface-hover);
+  --input-bg-disabled: var(--color-slate-200);
+  --input-surface: var(--color-text-primary);
+  --input-surface-disabled: var(--color-text-disabled);
+  --input-border: var(--color-border-primary);
+  --input-border-hover: var(--color-border-hover);
+  --input-border-active: var(--color-border-focus);
+
+  /* ── Page Header ── */
+  --page-bg: var(--color-bg-primary);
+  --page-surface: var(--color-text-primary);
+
+  /* ── Tabs Navigation ── */
+  --tabs-nav-bg: var(--color-bg-primary);
+  --tabs-nav-border: var(--color-border-primary);
+  --tabs-nav-item-bg: var(--color-bg-primary);
+  --tabs-nav-item-bg-hover: var(--color-surface-hover);
+  --tabs-nav-item-bg-active: var(--color-surface-selected);
+  --tabs-nav-item-surface: var(--color-text-primary);
+  --tabs-nav-item-surface-hover: var(--color-action-primary-cta);
+  --tabs-nav-item-surface-selected: var(--color-action-primary-cta-hover);
+  --tabs-nav-item-radius: var(--radius-rounded-full);
+
+  /* ── Tabs Browsing ── */
+  --tabs-browsing-bg: var(--color-surface-secondary);
+  --tabs-browsing-radius: var(--radius-rounded-sm);
+  --tabs-browsing-item-bg-active: var(--color-surface-primary);
+  --tabs-browsing-item-bg-inactive: var(--color-surface-primary);
+  --tabs-browsing-item-bg-inactive-hover: var(--color-surface-emphasis);
+  --tabs-browsing-item-surface: var(--color-text-primary);
+  --tabs-browsing-item-border: var(--color-border-primary);
+  --tabs-browsing-item-radius: var(--radius-rounded-sm);
+
+  /* ── KPI Filters ── */
+  --kpi-bg: var(--color-surface-primary);
+  --kpi-bg-hover: var(--color-surface-hover);
+  --kpi-bg-active: var(--color-surface-selected);
+  --kpi-surface: var(--color-text-primary);
+  --kpi-surface-disabled: var(--color-text-disabled);
+  --kpi-border: var(--color-border-primary);
+  --kpi-border-hover: var(--color-border-hover);
+  --kpi-border-active: var(--color-border-focus);
+  --kpi-border-disabled: var(--color-border-primary);
+  --kpi-radius: var(--radius-rounded-md);
+
+  /* ── Chip ── */
+  --chip-bg-brand: var(--color-category-bg-brand);
+  --chip-bg-brand-hover: var(--color-category-bg-brand-hover);
+  --chip-bg-grey: var(--color-category-bg-grey);
+  --chip-bg-grey-hover: var(--color-category-bg-grey-hover);
+  --chip-bg-blue: var(--color-category-bg-blue);
+  --chip-bg-blue-hover: var(--color-category-bg-blue-hover);
+  --chip-bg-green: var(--color-category-bg-green);
+  --chip-bg-green-hover: var(--color-category-bg-green-hover);
+  --chip-bg-red: var(--color-category-bg-red);
+  --chip-bg-red-hover: var(--color-category-bg-red-hover);
+  --chip-bg-amber: var(--color-category-bg-amber);
+  --chip-bg-amber-hover: var(--color-category-bg-amber-hover);
+  --chip-bg-orange: var(--color-category-bg-orange);
+  --chip-bg-orange-hover: var(--color-category-bg-orange-hover);
+  --chip-bg-cyan: var(--color-category-bg-cyan);
+  --chip-bg-cyan-hover: var(--color-category-bg-cyan-hover);
+  --chip-surface-brand: var(--color-category-surface-brand);
+  --chip-surface-grey: var(--color-category-surface-grey);
+  --chip-surface-blue: var(--color-category-surface-blue);
+  --chip-surface-green: var(--color-category-surface-green);
+  --chip-surface-red: var(--color-category-surface-red);
+  --chip-surface-amber: var(--color-category-surface-amber);
+  --chip-surface-orange: var(--color-category-surface-orange);
+  --chip-surface-cyan: var(--color-category-surface-cyan);
+  --chip-border-brand: var(--color-category-border-brand);
+  --chip-border-brand-hover: var(--color-category-border-brand-hover);
+  --chip-border-grey: var(--color-category-border-grey);
+  --chip-border-grey-hover: var(--color-category-border-grey-hover);
+  --chip-border-blue: var(--color-category-border-blue);
+  --chip-border-blue-hover: var(--color-category-border-blue-hover);
+  --chip-border-green: var(--color-category-border-green);
+  --chip-border-green-hover: var(--color-category-border-green-hover);
+  --chip-border-red: var(--color-category-border-red);
+  --chip-border-red-hover: var(--color-category-border-red-hover);
+  --chip-border-amber: var(--color-category-border-amber);
+  --chip-border-amber-hover: var(--color-category-border-amber-hover);
+  --chip-border-orange: var(--color-category-border-orange);
+  --chip-border-orange-hover: var(--color-category-border-orange-hover);
+  --chip-border-cyan: var(--color-category-border-cyan);
+  --chip-border-cyan-hover: var(--color-category-border-cyan-hover);
+}
+
+/* ==========================================================================
+   4. SHADCN BRIDGE - Maps Shadcn naming to component/semantic tokens
+   ========================================================================== */
+
+@theme inline {
+  --color-background: var(--page-bg);
+  --color-foreground: var(--page-surface);
+  --color-card: var(--menu-panel-bg);
+  --color-card-foreground: var(--menu-item-surface);
+  --color-popover: var(--tooltip-bg);
+  --color-popover-foreground: var(--tooltip-surface);
+  --color-primary: var(--btn-primary-bg);
+  --color-primary-foreground: var(--btn-primary-surface);
+  --color-secondary: var(--btn-secondary-bg);
+  --color-secondary-foreground: var(--btn-secondary-surface);
+  --color-muted: var(--tabs-browsing-bg);
+  --color-accent: var(--btn-ghost-bg-hover);
+  --color-accent-foreground: var(--btn-ghost-surface);
+  --color-destructive: var(--color-accent-danger);
+  --color-border: var(--input-border);
+  --color-input: var(--input-border);
+  --color-ring: var(--input-border-active);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--nav-side-bg);
+  --color-sidebar-foreground: var(--nav-item-surface);
+  --color-sidebar-primary: var(--btn-primary-bg);
+  --color-sidebar-primary-foreground: var(--btn-primary-surface);
+  --color-sidebar-accent: var(--nav-item-bg-hover);
+  --color-sidebar-accent-foreground: var(--nav-item-surface);
+  --color-sidebar-border: var(--nav-side-border);
+  --color-sidebar-ring: var(--input-border-active);
+  --color-table-row-hover: var(--table-row-bg-hover);
+  --color-table-head-column-hover: var(--table-head-column-bg-hover);
+  --radius-btn-secondary: var(--btn-secondary-radius);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --background: var(--page-bg);
+  --foreground: var(--page-surface);
+  --card: var(--menu-panel-bg);
+  --card-foreground: var(--menu-item-surface);
+  --popover: var(--tooltip-bg);
+  --popover-foreground: var(--tooltip-surface);
+  --primary: var(--btn-primary-bg);
+  --primary-foreground: var(--btn-primary-surface);
+  --secondary: var(--btn-secondary-bg);
+  --secondary-foreground: var(--btn-secondary-surface);
+  --muted: var(--tabs-browsing-bg);
+  --accent: var(--btn-ghost-bg-hover);
+  --accent-foreground: var(--btn-ghost-surface);
+  --destructive: var(--color-accent-danger);
+  --border: var(--input-border);
+  --input: var(--input-border);
+  --ring: var(--input-border-active);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: var(--nav-side-bg);
+  --sidebar-foreground: var(--nav-item-surface);
+  --sidebar-primary: var(--btn-primary-bg);
+  --sidebar-primary-foreground: var(--btn-primary-surface);
+  --sidebar-accent: var(--nav-item-bg-hover);
+  --sidebar-accent-foreground: var(--nav-item-surface);
+  --sidebar-border: var(--nav-side-border);
+  --sidebar-ring: var(--input-border-active);
+}
+
+/* ==========================================================================
+   5. THEME VALUES - Dark mode overrides
+   ========================================================================== */
+
+.dark {
+  /* Semantic dark mode overrides */
+  --color-bg-primary: var(--color-slate-1000);
+  --color-bg-secondary: var(--color-slate-900);
+  --color-bg-tertiary: var(--color-slate-800);
+
+  --color-surface-primary: var(--color-slate-1000);
+  --color-surface-secondary: var(--color-slate-900);
+  --color-surface-tertiary: var(--color-slate-800);
+  --color-surface-emphasis: var(--color-slate-900);
+
+  --color-text-primary: var(--color-slate-100);
+  --color-text-secondary: var(--color-slate-800);
+  --color-text-tertiary: var(--color-slate-900);
+  --color-text-inverse: var(--color-slate-1000);
+
+  --color-border-primary: var(--color-slate-900);
+  --color-border-dark: var(--color-slate-900);
+
+  --color-action-secondary-cta: var(--color-slate-700);
+  --color-action-secondary-cta-hover: var(--color-slate-400);
+
+  --color-icon-primary: var(--color-slate-100);
+  --color-icon-secondary: var(--color-slate-300);
+  --color-icon-tertiary: var(--color-slate-700);
+  --color-icon-inverse: var(--color-slate-1000);
+
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+}
+
+/* ==========================================================================
+   6. BASE STYLES
+   ========================================================================== */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ==========================================================================
+   7. TYPOGRAPHY COMPONENT CLASSES
+   ========================================================================== */
+
+@layer components {
+  .heading {
+    font-family: var(--font-inter);
+    font-size: var(--font-scale-6);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .subheading {
+    font-family: var(--font-inter);
+    font-size: var(--font-scale-5);
+  }
+
+  .subheading-size-small {
+    font-size: var(--font-scale-3);
+  }
+
+  .subheading-size-medium {
+    font-size: var(--font-scale-4);
+  }
+
+  .subheading-size-large {
+    font-size: var(--font-scale-5);
+  }
+
+  .subheading-weight-regular {
+    font-weight: var(--font-weight-regular);
+  }
+
+  .subheading-weight-medium {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .body {
+    font-family: var(--font-inter);
+    font-weight: var(--font-weight-regular);
+  }
+
+  .body-size-small {
+    font-size: var(--font-scale-2);
+  }
+
+  .body-size-medium {
+    font-size: var(--font-scale-3);
+  }
+
+  .body-size-large {
+    font-size: var(--font-scale-4);
+  }
+
+  .body-weight-regular {
+    font-weight: var(--font-weight-regular);
+  }
+
+  .body-weight-medium {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .body-size-xsmall {
+    font-size: var(--font-scale-1);
+  }
+
+  .body-weight-large {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .code {
+    font-family: var(--font-roboto-mono);
+    font-weight: var(--font-weight-regular);
+  }
+
+  .code-size-small {
+    font-size: var(--font-scale-2);
+  }
+
+  .code-size-medium {
+    font-size: var(--font-scale-3);
+  }
+
+  .code-size-large {
+    font-size: var(--font-scale-4);
+  }
+}
+
+/* ==========================================================================
+   8. ANIMATION COMPONENT CLASSES
+   ========================================================================== */
+
+@layer components {
+  .btn-swish {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+    --swish-angle: 135deg;
+    --swish-period: 2500ms;
+    --swish-easing: cubic-bezier(.42, 0, .58, 1);
+    --swish-from: #7AC4FF;
+    --swish-to: #A07EFF;
+    --swish-delay: 0ms;
+    --swish-stagger: 300ms;
+  }
+
+  .btn-swish::before {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background:
+      linear-gradient(var(--swish-angle),
+        transparent 30%,
+        color-mix(in srgb, var(--swish-from) 30%, transparent) 48%,
+        color-mix(in srgb, var(--swish-to) 30%, transparent) 56%,
+        transparent 75%) 0 0 / 300% 100% no-repeat;
+    background-position: 110% 0;
+    animation: swish-sweep var(--swish-period) var(--swish-easing) var(--swish-delay) 2 forwards;
+  }
+
+  .btn-swish::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    opacity: 0;
+    background:
+      linear-gradient(var(--swish-angle),
+        transparent 30%,
+        var(--swish-from) 50%,
+        var(--swish-to) 55%,
+        transparent 75%) 0 0 / 300% 100% no-repeat;
+    background-position: 110% 0;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: swish-sweep var(--swish-period) var(--swish-easing) calc(var(--swish-delay) + var(--swish-stagger)) 2 forwards;
+  }
+
+  .btn-glow {
+    display: inline-flex;
+    border-radius: 8px;
+    border: 0.5px solid #e0e0e0;
+    background: #ffffff;
+    animation: glowPulse 2.5s cubic-bezier(0.45, 0, 0.55, 1) 2 forwards;
+  }
+
+  .btn-glow.btn-swish {
+    --swish-delay: 0ms;
+    --swish-period: 2.5s;
+  }
+
+  .btn-glow.btn-swish::before {
+    animation: swish-sweep var(--swish-period) var(--swish-easing) var(--swish-delay) 2 forwards;
+  }
+
+  .btn-glow.btn-swish::after {
+    animation: swish-sweep var(--swish-period) var(--swish-easing) calc(var(--swish-delay) + var(--swish-stagger)) 2 forwards;
+  }
+
+}
+
+@keyframes swish-sweep {
+  0%      { background-position: 110% 0; opacity: 1; }
+  55.6%   { background-position: -110% 0; opacity: 0; }
+  100%    { background-position: -110% 0; opacity: 0; }
+}
+
+@keyframes glowPulse {
+  0% {
+    box-shadow: 0 0 0px 0px rgba(142, 91, 255, 0);
+    border-color: #e0e0e0;
+  }
+  50% {
+    box-shadow: 0 0 20px 0px rgba(142, 91, 255, 0.55);
+    border-color: rgba(142, 91, 255, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0px 0px rgba(142, 91, 255, 0);
+    border-color: #e0e0e0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-swish::before,
+  .btn-swish::after,
+  .btn-glow,
+  .btn-glow.btn-swish::before,
+  .btn-glow.btn-swish::after {
+    animation: none;
+  }
+}
