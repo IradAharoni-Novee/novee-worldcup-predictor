@@ -7,11 +7,19 @@ export default function AdminSyncPage() {
     <PageContainer title="Admin · Sync">
       <Card>
         <CardHeader>
-          <CardTitle>Pull fixtures &amp; results</CardTitle>
+          <CardTitle>Sync from football-data.org &amp; FIFA</CardTitle>
           <CardDescription>
-            Fetches the current state of the World Cup 2026 from football-data.org and
-            upserts teams + matches into the database. Existing predictions are not
-            touched. A daily cron runs this automatically at 06:00 UTC.
+            Fixtures &amp; results pull from football-data.org (daily cron at 06:00 UTC).
+            Squads pull biographical data from football-data.org. Player photos are scraped
+            from FIFA&apos;s tournament squad pages — that one runs from the CLI because
+            it spins up a headless browser:
+            <br />
+            <code className="code code-size-small">pnpm tsx prisma/sync-squad-photos.ts</code>
+            <br />
+            For testing against past tournaments:{" "}
+            <code className="code code-size-small">
+              pnpm tsx prisma/sync-squad-photos.ts qatar2022
+            </code>
           </CardDescription>
         </CardHeader>
         <CardContent>

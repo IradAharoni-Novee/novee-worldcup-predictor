@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { syncFromFootballData } from "@/lib/sync";
+import { syncFromFootballData, syncSquadsFromFootballData } from "@/lib/sync";
 import { MatchStatus } from "@prisma/client";
 
 async function requireAdmin() {
@@ -92,6 +92,23 @@ export async function triggerSync(): Promise<AdminResult> {
       ok: true,
       ...result,
     } as AdminResult;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    return { ok: false, error: message };
+  }
+}
+
+export async function triggerSquadSync(): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ok: false, error: "Admins only." };
+  }
+  try {
+    const result = await syncSquadsFromFootballData();
+    revalidatePath("/awards");
+    revalidatePath("/admin/awards");
+    return { ok: true, ...result } as AdminResult;
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return { ok: false, error: message };

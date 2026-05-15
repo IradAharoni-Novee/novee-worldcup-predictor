@@ -72,7 +72,12 @@ describe("scorePrediction", () => {
   });
 
   it("respects a custom scoring config", () => {
-    const config = { exactScore: 5, correctOutcome: 2, knockoutMultiplier: 3 };
+    const config = {
+      ...DEFAULT_SCORING,
+      exactScore: 5,
+      correctOutcome: 2,
+      knockoutMultiplier: 3,
+    };
     expect(
       scorePrediction({ homeScore: 2, awayScore: 1 }, koMatch(Stage.QF, 2, 1), config)
     ).toBe(15);

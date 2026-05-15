@@ -1,6 +1,10 @@
 import { MatchStatus, Stage } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { fetchWorldCupMatches, type FdMatch } from "@/lib/football-data";
+import {
+  fetchWorldCupMatches,
+  fetchWorldCupSquads,
+  type FdMatch,
+} from "@/lib/football-data";
 
 function mapStage(stage: FdMatch["stage"]): Stage {
   switch (stage) {
@@ -111,4 +115,44 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   }
 
   return { teamsUpserted: teamsById.size, matchesUpserted: matches.length };
+}
+
+export type SyncSquadsResult = {
+  playersUpserted: number;
+  teamsFound: number;
+};
+
+export async function syncSquadsFromFootballData(): Promise<SyncSquadsResult> {
+  const teams = await fetchWorldCupSquads();
+
+  const allTeams = await prisma.team.findMany({ select: { id: true, fdId: true } });
+  const teamIdByFd = new Map(allTeams.map((t) => [t.fdId, t.id]));
+
+  let playersUpserted = 0;
+  for (const t of teams) {
+    const localTeamId = teamIdByFd.get(t.id) ?? null;
+    for (const p of t.squad ?? []) {
+      await prisma.player.upsert({
+        where: { fdId: p.id },
+        create: {
+          fdId: p.id,
+          name: p.name,
+          position: p.position,
+          dateOfBirth: p.dateOfBirth,
+          nationality: p.nationality,
+          teamId: localTeamId,
+        },
+        update: {
+          name: p.name,
+          position: p.position,
+          dateOfBirth: p.dateOfBirth,
+          nationality: p.nationality,
+          teamId: localTeamId,
+        },
+      });
+      playersUpserted += 1;
+    }
+  }
+
+  return { playersUpserted, teamsFound: teams.length };
 }

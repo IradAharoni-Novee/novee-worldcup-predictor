@@ -67,3 +67,35 @@ export async function fetchWorldCupMatches(): Promise<FdMatch[]> {
   const data = (await res.json()) as FdMatchesResponse;
   return data.matches;
 }
+
+export type FdPlayer = {
+  id: number;
+  name: string;
+  position: string | null;
+  dateOfBirth: string | null;
+  nationality: string | null;
+};
+
+type FdTeamWithSquad = {
+  id: number;
+  name: string;
+  squad: FdPlayer[];
+};
+
+type FdTeamsResponse = {
+  teams: FdTeamWithSquad[];
+};
+
+export async function fetchWorldCupSquads(): Promise<FdTeamWithSquad[]> {
+  const res = await fetch(`${BASE_URL}/competitions/${COMPETITION_CODE}/teams`, {
+    headers: { "X-Auth-Token": token() },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(
+      `football-data.org returned ${res.status} ${res.statusText}: ${await res.text()}`
+    );
+  }
+  const data = (await res.json()) as FdTeamsResponse;
+  return data.teams;
+}

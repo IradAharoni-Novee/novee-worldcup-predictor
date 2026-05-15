@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Lock, Trophy } from "lucide-react";
+import { ArrowUpRight, Lock, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
 import { formatKickoff, isLocked, stageLabel } from "@/lib/format";
+import { InlineScoreEditor } from "@/components/match/inline-score-editor";
 
 type TeamLite = { name: string; code: string; flag: string | null } | null;
 
@@ -82,66 +83,69 @@ export function MatchCard({
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
   return (
-    <Link href={`/matches/${id}`} className="block">
-      <Card className="gap-3 py-4 hover:border-[color:var(--color-border-hover)] transition-colors">
-        <div className="flex items-center justify-between px-4">
-          <div className="flex items-center gap-2">
+    <Card className="gap-3 py-4 hover:border-[color:var(--color-border-hover)] transition-colors">
+      <div className="flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <Chip
+            size="small"
+            color={stageChipColor(stage)}
+            label={stageLabel(stage, group)}
+          />
+          {status === "LIVE" && <Chip size="small" color="red" label="LIVE" />}
+          {status === "FINISHED" && points != null && (
             <Chip
               size="small"
-              color={stageChipColor(stage)}
-              label={stageLabel(stage, group)}
-            />
-            {status === "LIVE" && (
-              <Chip size="small" color="red" label="LIVE" />
-            )}
-            {status === "FINISHED" && points != null && (
-              <Chip
-                size="small"
-                color={points > 0 ? "green" : "slate"}
-                label={
-                  <span className="flex items-center gap-1">
-                    <Trophy className="size-3" />
-                    {points} pt{points === 1 ? "" : "s"}
-                  </span>
-                }
-              />
-            )}
-          </div>
-          <span className="body body-size-small text-[color:var(--color-text-secondary)]">
-            {formatKickoff(kickoff)}
-          </span>
-        </div>
-        <div className="px-4 flex flex-col gap-1.5">
-          <TeamRow team={homeTeam} score={homeScore} />
-          <TeamRow team={awayTeam} score={awayScore} />
-        </div>
-        <div className="px-4 pt-2 border-t border-[color:var(--color-border-secondary)] flex items-center justify-between">
-          <span
-            className={cn(
-              "body body-size-small",
-              prediction
-                ? "text-[color:var(--color-text-primary)]"
-                : "text-[color:var(--color-text-tertiary)]"
-            )}
-          >
-            {prediction ? (
-              <>
-                Your pick:{" "}
-                <span className="code code-size-medium">
-                  {prediction.homeScore}–{prediction.awayScore}
+              color={points > 0 ? "green" : "slate"}
+              label={
+                <span className="flex items-center gap-1">
+                  <Trophy className="size-3" />
+                  {points} pt{points === 1 ? "" : "s"}
                 </span>
-              </>
-            ) : locked ? (
-              "No prediction submitted"
-            ) : (
-              "Tap to predict"
-            )}
-          </span>
-          {locked ? (
-            <Lock className="size-3.5 text-[color:var(--color-text-tertiary)]" />
-          ) : null}
+              }
+            />
+          )}
         </div>
-      </Card>
-    </Link>
+        <Link
+          href={`/matches/${id}`}
+          className="inline-flex items-center gap-1 body body-size-small text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
+          aria-label="Match details"
+        >
+          {formatKickoff(kickoff)}
+          <ArrowUpRight className="size-3.5" />
+        </Link>
+      </div>
+      <div className="px-4 flex flex-col gap-1.5">
+        <TeamRow team={homeTeam} score={homeScore} />
+        <TeamRow team={awayTeam} score={awayScore} />
+      </div>
+      <div className="px-4 pt-2 border-t border-[color:var(--color-border-secondary)]">
+        {locked ? (
+          <div className="flex items-center justify-between">
+            <span
+              className={cn(
+                "body body-size-small",
+                prediction
+                  ? "text-[color:var(--color-text-primary)]"
+                  : "text-[color:var(--color-text-tertiary)]"
+              )}
+            >
+              {prediction ? (
+                <>
+                  Your pick:{" "}
+                  <span className="code code-size-medium">
+                    {prediction.homeScore}–{prediction.awayScore}
+                  </span>
+                </>
+              ) : (
+                "No prediction submitted"
+              )}
+            </span>
+            <Lock className="size-3.5 text-[color:var(--color-text-tertiary)]" />
+          </div>
+        ) : (
+          <InlineScoreEditor matchId={id} initial={prediction ?? null} />
+        )}
+      </div>
+    </Card>
   );
 }

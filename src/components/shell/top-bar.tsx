@@ -2,23 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { signOutAction } from "@/lib/actions/sign-out";
 
 type NavLink = { href: string; label: string };
 
 const NAV: readonly NavLink[] = [
   { href: "/matches", label: "Matches" },
+  { href: "/groups", label: "Groups" },
   { href: "/bracket", label: "Bracket" },
+  { href: "/awards", label: "Awards" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/me", label: "Me" },
 ];
 
 export function TopBar({
   userEmail,
+  userName,
+  userImage,
   isAdmin,
 }: {
   userEmail?: string | null;
+  userName?: string | null;
+  userImage?: string | null;
   isAdmin?: boolean;
 }) {
   const pathname = usePathname();
@@ -26,7 +35,7 @@ export function TopBar({
     <header className="border-b border-[color:var(--color-border-primary)] bg-[var(--nav-top-bg)]">
       <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/matches" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <VeeVeeLogo size={28} />
             <span className="heading text-base">World Cup Predictor</span>
           </Link>
@@ -65,9 +74,34 @@ export function TopBar({
           </nav>
         </div>
         {userEmail && (
-          <span className="body body-size-small text-[color:var(--color-text-secondary)]">
-            {userEmail}
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <UserAvatar
+                email={userEmail}
+                name={userName}
+                image={userImage}
+                size={28}
+              />
+              <div className="flex flex-col leading-tight">
+                <span className="body body-size-small body-weight-medium">
+                  {userName ?? userEmail.split("@")[0]}
+                </span>
+                <span className="body body-size-xsmall text-[color:var(--color-text-tertiary)]">
+                  {userEmail}
+                </span>
+              </div>
+            </div>
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                title="Sign out"
+                className="size-8 grid place-items-center rounded-md text-[color:var(--color-text-secondary)] hover:bg-[var(--tabs-nav-item-bg-hover)] hover:text-[color:var(--color-text-primary)] transition-colors"
+              >
+                <LogOut className="size-4" />
+                <span className="sr-only">Sign out</span>
+              </button>
+            </form>
+          </div>
         )}
       </div>
     </header>

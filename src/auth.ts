@@ -1,9 +1,12 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Resend from "next-auth/providers/resend";
+import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 import { isAllowedEmail } from "@/lib/email-allowlist";
+import { fetchSlackProfile } from "@/lib/slack";
+import { verifyPassword } from "@/lib/password";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -13,6 +16,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // JWT strategy so the middleware can validate the session on the edge without DB.
   session: { strategy: "jwt" },
   providers: [
+    Credentials({
+      name: "Email + Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = String(credentials?.email ?? "").trim().toLowerCase();
+        const password = String(credentials?.password ?? "");
+        if (!email || !password) return null;
+        if (!isAllowedEmail(email)) return null;
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            passwordHash: true,
+          },
+        });
+        if (!user?.passwordHash) return null;
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      },
+    }),
     Resend({
       apiKey: process.env.RESEND_API_KEY || "dev-no-key",
       from: process.env.AUTH_EMAIL_FROM ?? "noreply@example.com",
@@ -42,6 +77,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }),
     }),
   ],
+  events: {
+    async createUser({ user }) {
+      // First sign-in: look up the user in Slack and store their display name + photo.
+      // Silently no-op if SLACK_BOT_TOKEN is unset or the user isn't in the workspace.
+      if (!user.id || !user.email) return;
+      try {
+        const profile = await fetchSlackProfile(user.email);
+        if (!profile) return;
+        const data: { image?: string; name?: string } = {};
+        if (profile.image) data.image = profile.image;
+        if (profile.name) data.name = profile.name;
+        if (Object.keys(data).length === 0) return;
+        await prisma.user.update({ where: { id: user.id }, data });
+      } catch (err) {
+        // Never block sign-in on a Slack lookup failure.
+        // eslint-disable-next-line no-console
+        console.error("Slack profile lookup failed:", err);
+      }
+    },
+  },
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ user }) {

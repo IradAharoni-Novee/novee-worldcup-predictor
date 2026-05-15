@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VeeVeeLogo } from "@/components/ui/novee-logo";
@@ -31,31 +37,61 @@ export default async function SignInPage({
     "check-email"?: string;
     from?: string;
     error?: string;
+    mode?: string;
   }>;
 }) {
   const params = await searchParams;
   const checkEmail = params["check-email"] === "1";
   const from = params.from ?? "/matches";
+  const mode = params.mode === "link" ? "link" : "password";
   const devLink = checkEmail ? getDevMagicLink() : null;
+
   const errorMessage =
     params.error === "domain"
       ? ALLOWED_EMAIL_MESSAGE
-      : params.error === "send"
-        ? "Could not send the magic link. Try again in a moment."
-        : null;
+      : params.error === "credentials"
+        ? "Wrong email or password. Use “Get a one-time link” below if you need to set or reset a password."
+        : params.error === "send"
+          ? "Could not send the link. Try again in a moment."
+          : params.error === "CredentialsSignin"
+            ? "Wrong email or password."
+            : null;
 
-  async function emailSignIn(formData: FormData) {
+  // --- server actions ---
+
+  async function passwordSignIn(formData: FormData) {
     "use server";
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const password = String(formData.get("password") ?? "");
     if (!isAllowedEmail(email)) {
       redirect("/signin?error=domain");
     }
     try {
-      await signIn("resend", { email, redirectTo: from });
+      await signIn("credentials", {
+        email,
+        password,
+        redirectTo: from,
+      });
     } catch (err) {
-      // signIn throws a redirect error on success — re-throw to let Next handle it.
       if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
-      redirect("/signin?error=send");
+      redirect("/signin?error=credentials");
+    }
+  }
+
+  async function magicLinkSignIn(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    if (!isAllowedEmail(email)) {
+      redirect("/signin?mode=link&error=domain");
+    }
+    try {
+      // Magic link is invitation + forgot-password only. Always land on
+      // /set-password so the user must (re)set their password before
+      // continuing to the app.
+      await signIn("resend", { email, redirectTo: "/set-password" });
+    } catch (err) {
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      redirect("/signin?mode=link&error=send");
     }
   }
 
@@ -77,7 +113,8 @@ export default async function SignInPage({
           {checkEmail ? (
             <div className="flex flex-col gap-3">
               <p className="body body-size-medium text-[color:var(--color-text-secondary)]">
-                Check your inbox. The link is good for 24 hours.
+                Check your inbox. The link is good for 24 hours and lets you set or
+                reset your password.
               </p>
               {devLink && (
                 <>
@@ -103,8 +140,8 @@ export default async function SignInPage({
                 </>
               )}
             </div>
-          ) : (
-            <form action={emailSignIn} className="flex flex-col gap-3">
+          ) : mode === "link" ? (
+            <form action={magicLinkSignIn} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="email">Work email</Label>
                 <Input
@@ -115,7 +152,6 @@ export default async function SignInPage({
                   autoComplete="email"
                   placeholder={`you@${ALLOWED_EMAIL_DOMAIN}`}
                   pattern={`[a-zA-Z0-9._%+\\-]+@${ALLOWED_EMAIL_DOMAIN.replace(/\./g, "\\.")}`}
-                  title={`Must be a @${ALLOWED_EMAIL_DOMAIN} email`}
                   size="lg"
                 />
               </div>
@@ -124,9 +160,69 @@ export default async function SignInPage({
                   {errorMessage}
                 </p>
               )}
-              <Button type="submit" size="lg" className="mt-2">
+              <p className="body body-size-small text-[color:var(--color-text-secondary)]">
+                We&apos;ll email you a link to set or reset your password. The
+                link is one-time use and good for 24 hours.
+              </p>
+              <Button type="submit" size="lg">
                 Email me a link
               </Button>
+              <p className="body body-size-small text-[color:var(--color-text-tertiary)] text-center">
+                <a
+                  href="/signin"
+                  className="underline hover:text-[color:var(--color-text-primary)]"
+                >
+                  Back to password sign-in
+                </a>
+              </p>
+            </form>
+          ) : (
+            <form action={passwordSignIn} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email">Work email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder={`you@${ALLOWED_EMAIL_DOMAIN}`}
+                  pattern={`[a-zA-Z0-9._%+\\-]+@${ALLOWED_EMAIL_DOMAIN.replace(/\./g, "\\.")}`}
+                  size="lg"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  size="lg"
+                />
+              </div>
+              {errorMessage && (
+                <p className="body body-size-small text-[color:var(--color-accent-danger)]">
+                  {errorMessage}
+                </p>
+              )}
+              <Button type="submit" size="lg">
+                Sign in
+              </Button>
+              <div className="relative my-1 flex items-center">
+                <div className="flex-1 border-t border-[color:var(--color-border-secondary)]" />
+                <span className="px-3 body body-size-small text-[color:var(--color-text-tertiary)]">
+                  or
+                </span>
+                <div className="flex-1 border-t border-[color:var(--color-border-secondary)]" />
+              </div>
+              <Button asChild variant="outline" size="lg">
+                <a href="/signin?mode=link">First time or forgot password?</a>
+              </Button>
+              <p className="body body-size-small text-[color:var(--color-text-tertiary)] text-center">
+                We&apos;ll email you a one-time link to set or reset your password.
+              </p>
             </form>
           )}
         </CardContent>

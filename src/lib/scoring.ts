@@ -1,15 +1,34 @@
 import { Stage } from "@prisma/client";
 
+export type KnockoutStage = Exclude<Stage, "GROUP">;
+
 export type ScoringConfig = {
   exactScore: number;
   correctOutcome: number;
   knockoutMultiplier: number;
+  groupExactPosition: number;
+  groupQualifiedHalf: number;
+  bracketRoundPoints: Record<KnockoutStage, number>;
+  tournamentWinnerPoints: number;
+  goldenBootPoints: number;
 };
 
 export const DEFAULT_SCORING: ScoringConfig = {
   exactScore: 3,
   correctOutcome: 1,
   knockoutMultiplier: 2,
+  groupExactPosition: 3,
+  groupQualifiedHalf: 1,
+  bracketRoundPoints: {
+    R32: 1,
+    R16: 2,
+    QF: 4,
+    SF: 8,
+    THIRD: 4,
+    FINAL: 16,
+  },
+  tournamentWinnerPoints: 25,
+  goldenBootPoints: 20,
 };
 
 type MatchLike = {

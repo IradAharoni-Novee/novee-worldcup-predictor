@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { getLeaderboard } from "@/lib/leaderboard";
 
 export default async function LeaderboardPage() {
@@ -35,9 +36,12 @@ export default async function LeaderboardPage() {
             <TableRow>
               <TableHead className="w-12">#</TableHead>
               <TableHead>Player</TableHead>
-              <TableHead className="text-right">Points</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Matches</TableHead>
+              <TableHead className="text-right">Groups</TableHead>
+              <TableHead className="text-right">Bracket</TableHead>
+              <TableHead className="text-right">Awards</TableHead>
               <TableHead className="text-right">Exact</TableHead>
-              <TableHead className="text-right">Outcome</TableHead>
               <TableHead className="text-right">Predictions</TableHead>
             </TableRow>
           </TableHeader>
@@ -75,28 +79,45 @@ export default async function LeaderboardPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span className="body body-weight-medium body-size-medium">
-                        {row.name ?? row.email.split("@")[0]}
-                        {me && (
-                          <span className="ml-2 text-xs text-[color:var(--color-action-primary-cta)]">
-                            You
-                          </span>
-                        )}
-                      </span>
-                      <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
-                        {row.email}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        email={row.email}
+                        name={row.name}
+                        image={row.image}
+                        size={32}
+                      />
+                      <div className="flex flex-col">
+                        <span className="body body-weight-medium body-size-medium">
+                          {row.name ?? row.email.split("@")[0]}
+                          {me && (
+                            <span className="ml-2 text-xs text-[color:var(--color-action-primary-cta)]">
+                              You
+                            </span>
+                          )}
+                        </span>
+                        <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                          {row.email}
+                        </span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-right code code-size-large tabular-nums">
                     {row.total}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {row.exact}
+                    {row.matchPoints}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {row.outcome}
+                    {row.groupPoints}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.bracketPoints}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.awardsPoints}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.exact}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {row.predictions}
