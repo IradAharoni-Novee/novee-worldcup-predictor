@@ -97,7 +97,7 @@ src/
 │       └── cron/sync/                 # daily fixture+result pull
 ├── auth.config.ts                     # edge-safe Auth.js config
 ├── auth.ts                            # full config w/ Prisma adapter
-├── middleware.ts                      # gate protected routes
+├── proxy.ts                           # gate protected routes (edge)
 ├── components/
 │   ├── ui/                            # Button, Card, Chip, Input, Dialog, …
 │   ├── shell/                         # TopBar, PageContainer, PageTitle

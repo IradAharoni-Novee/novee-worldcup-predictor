@@ -1,5 +1,27 @@
 import type { SVGProps } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/cn";
+
+export function WorldCupLogo({
+  size = 28,
+  className,
+  priority,
+}: {
+  size?: number;
+  className?: string;
+  priority?: boolean;
+}) {
+  return (
+    <Image
+      src="/novee-worldcup.png"
+      alt="Novee World Cup Predictor"
+      width={size}
+      height={size}
+      className={cn("shrink-0", className)}
+      priority={priority}
+    />
+  );
+}
 
 export function NoveeIcon(props: SVGProps<SVGSVGElement>) {
   return (

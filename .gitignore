@@ -19,10 +19,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# env files — all environments stay local
 .env
-.env*.local
-.env.production
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -37,3 +37,4 @@ next-env.d.ts
 # tests
 /playwright-report/
 /test-results/
+.env*.local

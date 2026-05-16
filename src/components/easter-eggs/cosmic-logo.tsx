@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { WorldCupLogo } from "@/components/ui/novee-logo";
 
 const STORAGE_KEY = "veevee:clicks";
 const WINDOW_MS = 10_000;
@@ -60,10 +60,10 @@ export function CosmicLogo({ size = 28 }: { size?: number }) {
     <button
       type="button"
       onClick={onClick}
-      aria-label="VeeVee"
-      className="cursor-pointer rounded-full"
+      aria-label="World Cup Predictor"
+      className="cursor-pointer rounded-md"
     >
-      <VeeVeeLogo size={size} />
+      <WorldCupLogo size={size} priority />
     </button>
   );
 }

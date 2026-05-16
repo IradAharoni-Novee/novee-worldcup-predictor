@@ -1,0 +1,9 @@
+{
+  "worktree": {
+    "setup": [
+      "pnpm install --frozen-lockfile",
+      "vercel link --yes --project worldcup --scope irad-aharonis-projects",
+      "vercel env pull .env.local --yes --environment=development"
+    ]
+  }
+}
