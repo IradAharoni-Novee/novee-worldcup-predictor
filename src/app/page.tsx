@@ -56,7 +56,10 @@ const GROUP_BRACKET_ROWS: { label: string; value: string }[] = [
 ];
 
 export default async function LandingPage() {
-  const session = await auth();
+  // Public page: tolerate a stale/unreadable session cookie instead of 500ing.
+  // A bad cookie surfaces from auth() as JWTSessionError; we just treat the
+  // visitor as signed-out and let them re-authenticate via the CTA.
+  const session = await auth().catch(() => null);
   const signedIn = Boolean(session?.user);
   const ctaHref = signedIn ? "/matches" : "/signin";
   const ctaLabel = signedIn ? "Continue to predictor" : "Sign in";
