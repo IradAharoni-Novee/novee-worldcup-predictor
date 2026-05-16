@@ -150,7 +150,7 @@ export default async function BracketPage() {
 function WideBleed({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="px-6"
+      className="px-4 sm:px-6"
       style={{ marginInline: "min(0px, calc((72rem - 100vw) / 2))" }}
     >
       {children}
@@ -174,15 +174,15 @@ function LockedBracket({
 
   return (
     <>
-      <Card className="px-6 py-4 mb-4 gap-2">
-        <div className="flex items-center justify-between">
-          <div>
+      <Card className="px-4 sm:px-6 py-4 mb-4 gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="body body-size-small text-[color:var(--color-text-secondary)]">
               Status
             </p>
             <p className="heading text-lg">Locked — knockouts have started</p>
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <p className="body body-size-small text-[color:var(--color-text-secondary)]">
               Bracket points
             </p>

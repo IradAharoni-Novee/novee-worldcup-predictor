@@ -65,19 +65,20 @@ export default async function LandingPage() {
       <CosmicBackground />
 
       <header className="relative border-b border-white/10 backdrop-blur-md bg-black/40">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
             <WorldCupLogo size={32} priority />
-            <span className="heading text-base text-white">World Cup Predictor</span>
+            <span className="heading text-base text-white truncate">World Cup Predictor</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Chip
               size="small"
               color="brand"
               label={
                 <>
                   <Lock className="size-3" />
-                  <span>@{ALLOWED_EMAIL_DOMAIN} only</span>
+                  <span className="hidden sm:inline">@{ALLOWED_EMAIL_DOMAIN} only</span>
+                  <span className="sm:hidden">@{ALLOWED_EMAIL_DOMAIN}</span>
                 </>
               }
               className="border-white/10 bg-white/5 text-white"
@@ -89,7 +90,9 @@ export default async function LandingPage() {
                 className="shadow-[0_0_24px_-8px_rgba(142,85,253,0.6)]"
               >
                 <Link href="/matches">
-                  Continue to predictor <ChevronRight className="size-4" />
+                  <span className="hidden sm:inline">Continue to predictor</span>
+                  <span className="sm:hidden">Continue</span>
+                  <ChevronRight className="size-4" />
                 </Link>
               </Button>
             )}
@@ -97,8 +100,8 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <section className="relative flex-1 grid place-items-center px-6 py-16">
-        <div className="w-full max-w-6xl">
+      <section className="relative flex-1 flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16 min-w-0 overflow-x-hidden">
+        <div className="w-full max-w-6xl min-w-0">
           {/* Hero copy, sitting directly on the cosmic background */}
           <div className="mb-10 grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_auto] md:gap-16">
             <div className="flex flex-col items-start gap-5">
@@ -113,7 +116,7 @@ export default async function LandingPage() {
                 }
                 className="border-white/15 bg-white/5 text-white backdrop-blur"
               />
-              <h1 className="text-5xl md:text-7xl font-medium leading-[1.02] tracking-tight max-w-4xl">
+              <h1 className="text-4xl sm:text-5xl md:text-7xl font-medium leading-[1.05] tracking-tight max-w-4xl">
                 <span
                   className="bg-clip-text text-transparent"
                   style={{
@@ -134,7 +137,7 @@ export default async function LandingPage() {
                   Out-play your team.
                 </span>
               </h1>
-              <p className="text-lg md:text-xl text-white/70 max-w-2xl">
+              <p className="text-base sm:text-lg md:text-xl text-white/70 max-w-2xl">
                 The Novee internal World Cup 2026 game. 104 matches, one live
                 leaderboard, double points in the knockouts. Pick early, climb
                 fast.
@@ -367,7 +370,7 @@ export default async function LandingPage() {
       </section>
 
       <footer className="relative border-t border-white/10 backdrop-blur-md bg-black/40 py-5">
-        <div className="mx-auto max-w-6xl px-6 flex items-center justify-between text-sm text-white/60">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-white/60">
           <span>Built for the Novee team. Not affiliated with FIFA.</span>
           <span className="flex items-center gap-2">
             <WorldCupLogo size={18} /> Novee

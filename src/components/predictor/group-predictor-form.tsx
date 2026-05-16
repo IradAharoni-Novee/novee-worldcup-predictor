@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, GripVertical, Loader2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, GripVertical, Loader2 } from "lucide-react";
 import { submitGroupPrediction } from "@/lib/actions/group-predictions";
 
 type Team = { id: string; name: string; code: string; flag: string | null };
@@ -202,10 +202,38 @@ export function GroupPredictorForm({
               <span className="body body-weight-medium body-size-medium flex-1 truncate">
                 {team.name}
               </span>
-              <GripVertical
-                className="size-4 text-[color:var(--color-text-tertiary)]"
-                aria-hidden
-              />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (index > 0) move(index, index - 1);
+                  }}
+                  disabled={index === 0}
+                  aria-label={`Move ${team.name} up`}
+                  className="md:hidden size-8 grid place-items-center rounded-md border border-[color:var(--color-border-secondary)] disabled:opacity-30 active:bg-[color:var(--color-surface-hover)]"
+                >
+                  <ChevronUp className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (index < order.length - 1) move(index, index + 1);
+                  }}
+                  disabled={index === order.length - 1}
+                  aria-label={`Move ${team.name} down`}
+                  className="md:hidden size-8 grid place-items-center rounded-md border border-[color:var(--color-border-secondary)] disabled:opacity-30 active:bg-[color:var(--color-surface-hover)]"
+                >
+                  <ChevronDown className="size-4" />
+                </button>
+                <GripVertical
+                  className="hidden md:block size-4 text-[color:var(--color-text-tertiary)]"
+                  aria-hidden
+                />
+              </div>
             </li>
           );
         })}

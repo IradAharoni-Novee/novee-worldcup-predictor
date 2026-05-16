@@ -44,12 +44,12 @@ export default async function LeaderboardPage() {
               <TableHead className="w-12">#</TableHead>
               <TableHead>Player</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Matches</TableHead>
-              <TableHead className="text-right">Groups</TableHead>
-              <TableHead className="text-right">Bracket</TableHead>
-              <TableHead className="text-right">Awards</TableHead>
-              <TableHead className="text-right">Exact</TableHead>
-              <TableHead className="text-right">Predictions</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Matches</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Groups</TableHead>
+              <TableHead className="text-right hidden md:table-cell">Bracket</TableHead>
+              <TableHead className="text-right hidden md:table-cell">Awards</TableHead>
+              <TableHead className="text-right hidden lg:table-cell">Exact</TableHead>
+              <TableHead className="text-right hidden lg:table-cell">Predictions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -86,14 +86,14 @@ export default async function LeaderboardPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <LeaderboardAvatar
                         email={row.email}
                         name={row.name}
                         image={row.image}
                       />
-                      <div className="flex flex-col">
-                        <span className="body body-weight-medium body-size-medium">
+                      <div className="flex flex-col min-w-0">
+                        <span className="body body-weight-medium body-size-medium truncate">
                           {row.name ?? row.email.split("@")[0]}
                           {me && (
                             <span className="ml-2 text-xs text-[color:var(--color-action-primary-cta)]">
@@ -101,7 +101,7 @@ export default async function LeaderboardPage() {
                             </span>
                           )}
                         </span>
-                        <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                        <span className="hidden sm:inline body body-size-small text-[color:var(--color-text-tertiary)] truncate">
                           {row.email}
                         </span>
                       </div>
@@ -113,22 +113,22 @@ export default async function LeaderboardPage() {
                       storageKey={`lb:total:${row.userId}`}
                     />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden sm:table-cell">
                     {row.matchPoints}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden sm:table-cell">
                     {row.groupPoints}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden md:table-cell">
                     {row.bracketPoints}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden md:table-cell">
                     {row.awardsPoints}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden lg:table-cell">
                     {row.exact}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums hidden lg:table-cell">
                     {row.predictions}
                   </TableCell>
                 </TableRow>

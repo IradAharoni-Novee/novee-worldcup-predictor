@@ -72,9 +72,9 @@ export default async function GroupPredictionPage({
   return (
     <PageContainer title={`Group ${group}`}>
       {locked ? (
-        <Card className="px-6 py-4 mb-4 gap-2">
-          <div className="flex items-center justify-between">
-            <div>
+        <Card className="px-4 sm:px-6 py-4 mb-4 gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="body body-size-small text-[color:var(--color-text-secondary)]">
                 Status
               </p>
@@ -83,7 +83,7 @@ export default async function GroupPredictionPage({
               </p>
             </div>
             {score && (
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <p className="body body-size-small text-[color:var(--color-text-secondary)]">
                   Points earned
                 </p>

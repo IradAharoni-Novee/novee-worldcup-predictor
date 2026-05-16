@@ -218,9 +218,9 @@ export function BracketPredictorForm({
   const finalWinner = picks.get(`${Stage.FINAL}:0`) ?? null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-w-0">
       <SaveStatus pending={pending} status={saveStatus} />
-      <div className="overflow-x-auto pb-4">
+      <div className="overflow-x-auto pb-4 min-w-0">
         <div className="flex items-stretch w-fit mx-auto min-h-[1100px]">
           <Round label="Round of 32" feedsNext>
             {r32Seeding.map((seed, i) => (
