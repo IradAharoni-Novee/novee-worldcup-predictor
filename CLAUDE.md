@@ -37,9 +37,9 @@ Next.js 16 App Router + React 19 + TypeScript strict, Prisma 6 / Postgres, Auth.
 Auth.js is split because the middleware runs on the edge and can't import Node-only modules:
 
 - `src/auth.config.ts` — **edge-safe.** Has no providers and no Prisma adapter. Only the `authorized` callback gating `PROTECTED_PREFIXES` (`/matches`, `/bracket`, `/leaderboard`, `/me`, `/admin`). Imported by `src/middleware.ts`.
-- `src/auth.ts` — **full config.** Adds Prisma adapter, Resend magic-link provider, Credentials (email + password) provider, JWT session strategy, and the `signIn` / `jwt` / `session` callbacks that propagate `userId` + `isAdmin` into the token. The `createUser` event does a best-effort Slack profile lookup and DMs a welcome from "VeeVee".
+- `src/auth.ts` — **full config.** Adds Prisma adapter, Google OAuth provider, Resend magic-link provider, Credentials (email + password) provider, JWT session strategy, and the `signIn` / `jwt` / `session` callbacks that propagate `userId` + `isAdmin` into the token. The `createUser` event does a best-effort Slack profile lookup and DMs a welcome from "VeeVee".
 
-Sign-in is restricted to `@novee.security` emails via `src/lib/email-allowlist.ts` — both the Credentials `authorize` step and the `signIn` callback enforce this. Magic links in dev are stashed on `globalThis.__devMagicLink` and printed to the console.
+Sign-in is restricted to `@novee.security` emails via `src/lib/email-allowlist.ts` — the Credentials `authorize` step and the `signIn` callback both enforce this, and the Google provider additionally requires `profile.email_verified === true`. The Google provider passes `hd=novee.security` as a UX hint (not a security boundary) and enables `allowDangerousEmailAccountLinking` so a user can mix Google and password/magic-link on the same email. Magic links in dev are stashed on `globalThis.__devMagicLink` and printed to the console.
 
 ### Prediction domain
 
@@ -95,6 +95,6 @@ Vitest covers the pure scoring/seeding/standings logic (`tests/*.test.ts`). Ther
 ## Env
 
 Required: `DATABASE_URL`, `AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `FOOTBALL_DATA_TOKEN`, `CRON_SECRET`.
-Optional: `SLACK_BOT_TOKEN` (+ `SLACK_EMAIL_DOMAINS` fallback list) for first-sign-in profile lookup.
+Optional: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (Google OAuth — without them the "Continue with Google" button on `/signin` will error); `SLACK_BOT_TOKEN` (+ `SLACK_EMAIL_DOMAINS` fallback list) for first-sign-in profile lookup.
 
 When changing the schema, always create a Prisma migration with `pnpm prisma:migrate` — `pnpm build` runs `prisma generate` but does not apply pending migrations.
