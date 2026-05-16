@@ -9,13 +9,21 @@ import {
   type SubmitResult,
 } from "@/lib/actions/predictions";
 
+const NOTE_MAX = 80;
+
+export type PredictionFormInitial = {
+  homeScore: number;
+  awayScore: number;
+  note?: string | null;
+};
+
 export function PredictionForm({
   matchId,
   initial,
   locked,
 }: {
   matchId: string;
-  initial?: { homeScore: number; awayScore: number } | null;
+  initial?: PredictionFormInitial | null;
   locked: boolean;
 }) {
   const [state, action, pending] = useActionState<SubmitResult | null, FormData>(
@@ -24,19 +32,25 @@ export function PredictionForm({
   );
   const [home, setHome] = useState(initial?.homeScore ?? 0);
   const [away, setAway] = useState(initial?.awayScore ?? 0);
+  const [note, setNote] = useState(initial?.note ?? "");
 
   if (locked) {
     return (
-      <div className="rounded-md border border-[color:var(--color-border-secondary)] bg-[color:var(--color-surface-secondary)] px-4 py-3 body body-size-medium text-[color:var(--color-text-secondary)]">
+      <div className="rounded-md border border-[color:var(--color-border-secondary)] bg-[color:var(--color-surface-secondary)] px-4 py-3 body body-size-medium text-[color:var(--color-text-secondary)] flex flex-col gap-2">
         {initial ? (
-          <>
+          <span>
             Your prediction:{" "}
             <span className="code code-size-large">
               {initial.homeScore}–{initial.awayScore}
             </span>
-          </>
+          </span>
         ) : (
-          "Kickoff has passed — no prediction was submitted."
+          <span>Kickoff has passed — no prediction was submitted.</span>
+        )}
+        {initial?.note && (
+          <span className="italic body body-size-small">
+            You said: &ldquo;{initial.note}&rdquo;
+          </span>
         )}
       </div>
     );
@@ -61,6 +75,27 @@ export function PredictionForm({
           onChange={setAway}
           ariaLabel="Away team score"
         />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor={`note-${matchId}`}
+          className="body body-size-small text-[color:var(--color-text-secondary)]"
+        >
+          Hot take (optional) — locked at kickoff
+        </label>
+        <textarea
+          id={`note-${matchId}`}
+          name="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+          maxLength={NOTE_MAX}
+          rows={2}
+          placeholder="Lock it in. Make it loud."
+          className="w-full rounded-md border border-[color:var(--color-border-primary)] bg-transparent px-3 py-2 body body-size-small outline-none focus:border-[color:var(--color-border-hover)] resize-none"
+        />
+        <span className="self-end body body-size-xsmall text-[color:var(--color-text-tertiary)] tabular-nums">
+          {note.length}/{NOTE_MAX}
+        </span>
       </div>
       {state && !state.ok && (
         <p className="text-sm text-[color:var(--color-accent-danger)]">

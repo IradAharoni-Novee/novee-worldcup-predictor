@@ -3,8 +3,19 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { submitPrediction } from "@/lib/actions/predictions";
+import { veeveeLine } from "@/lib/veevee-voice";
+import { veeveeToast } from "@/components/ui/veevee-toast";
 
 type Initial = { homeScore: number; awayScore: number } | null;
+
+// Iconic World Cup scores. Typing one flashes a small label for ~1s.
+// Easter egg — no UI affordance, no impact on prediction logic.
+const HISTORIC_SCORES: Record<string, string> = {
+  "7-1": "📜 Mineirazo · GER 7–1 BRA, 2014",
+  "1-7": "📜 Mineirazo · GER 7–1 BRA, 2014",
+  "4-2": "📜 1966 final · ENG 4–2 GER",
+  "3-3": "📜 POR 3–3 ESP, 2018 (Ronaldo hat-trick)",
+};
 
 export function InlineScoreEditor({
   matchId,
@@ -21,12 +32,25 @@ export function InlineScoreEditor({
   const [status, setStatus] = useState<
     "idle" | "saved" | { error: string }
   >("idle");
+  const [historicGlyph, setHistoricGlyph] = useState<string | null>(null);
   // Track the (homeScore, awayScore) pair the server already has. Null means
   // the user hasn't submitted yet — first real change always triggers a save.
   const lastSavedRef = useRef<readonly [number | null, number | null]>([
     initialHome,
     initialAway,
   ]);
+  // Toast only on the first save per editor mount, so the auto-save on every
+  // stepper click doesn't spam VeeVee.
+  const hasToastedRef = useRef(false);
+
+  useEffect(() => {
+    const key = `${home}-${away}`;
+    const match = HISTORIC_SCORES[key];
+    if (!match) return;
+    setHistoricGlyph(match);
+    const fade = setTimeout(() => setHistoricGlyph(null), 4000);
+    return () => clearTimeout(fade);
+  }, [home, away]);
 
   useEffect(() => {
     if (lastSavedRef.current[0] === home && lastSavedRef.current[1] === away) {
@@ -42,6 +66,10 @@ export function InlineScoreEditor({
         if (result.ok) {
           lastSavedRef.current = [home, away];
           setStatus("saved");
+          if (!hasToastedRef.current) {
+            hasToastedRef.current = true;
+            veeveeToast(veeveeLine("saveToast", matchId));
+          }
         } else {
           setStatus({ error: result.error });
         }
@@ -52,24 +80,34 @@ export function InlineScoreEditor({
   }, [home, away]);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Stepper
-        value={home}
-        onChange={setHome}
-        ariaLabel="Home team score"
-      />
-      <span
-        className="body body-size-small text-[color:var(--color-text-tertiary)]"
-        aria-hidden
-      >
-        –
-      </span>
-      <Stepper
-        value={away}
-        onChange={setAway}
-        ariaLabel="Away team score"
-      />
-      <SaveBadge pending={pending} status={status} initial={initial !== null} />
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Stepper
+          value={home}
+          onChange={setHome}
+          ariaLabel="Home team score"
+        />
+        <span
+          className="body body-size-small text-[color:var(--color-text-tertiary)]"
+          aria-hidden
+        >
+          –
+        </span>
+        <Stepper
+          value={away}
+          onChange={setAway}
+          ariaLabel="Away team score"
+        />
+        <SaveBadge pending={pending} status={status} initial={initial !== null} />
+      </div>
+      {historicGlyph && (
+        <span
+          className="body body-size-xsmall italic text-[color:var(--color-text-tertiary)] animate-pulse"
+          aria-hidden
+        >
+          {historicGlyph}
+        </span>
+      )}
     </div>
   );
 }

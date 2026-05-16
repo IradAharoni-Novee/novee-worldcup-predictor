@@ -27,6 +27,12 @@ const AI_PLAYERS = [
     // Bolder — wider range of scorelines, more goals
     style: "bold" as const,
   },
+  {
+    email: "veevees-cousin@novee.security",
+    name: "VeeVee's Cousin",
+    // 0-0 on every single match. A monument to the goalless draw.
+    style: "nilnil" as const,
+  },
 ];
 
 type AiStyle = (typeof AI_PLAYERS)[number]["style"];
@@ -43,6 +49,7 @@ function hash(str: string): number {
 }
 
 function pickScore(matchId: string, side: "home" | "away", style: AiStyle): number {
+  if (style === "nilnil") return 0;
   const r = hash(`${matchId}:${side}:${style}`);
   if (style === "thoughtful") {
     // 30% → 0, 40% → 1, 20% → 2, 10% → 3

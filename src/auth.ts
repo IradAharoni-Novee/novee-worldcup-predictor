@@ -5,8 +5,9 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 import { isAllowedEmail } from "@/lib/email-allowlist";
-import { fetchSlackProfile } from "@/lib/slack";
+import { fetchSlackProfile, sendSlackDm } from "@/lib/slack";
 import { verifyPassword } from "@/lib/password";
+import { veeveeLine } from "@/lib/veevee-voice";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -79,8 +80,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   events: {
     async createUser({ user }) {
-      // First sign-in: look up the user in Slack and store their display name + photo.
-      // Silently no-op if SLACK_BOT_TOKEN is unset or the user isn't in the workspace.
+      // First sign-in: look up the user in Slack and store their display name + photo,
+      // then DM them a welcome from VeeVee. Silently no-ops if SLACK_BOT_TOKEN is
+      // unset or the user isn't in the workspace.
       if (!user.id || !user.email) return;
       try {
         const profile = await fetchSlackProfile(user.email);
@@ -88,8 +90,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const data: { image?: string; name?: string } = {};
         if (profile.image) data.image = profile.image;
         if (profile.name) data.name = profile.name;
-        if (Object.keys(data).length === 0) return;
-        await prisma.user.update({ where: { id: user.id }, data });
+        if (Object.keys(data).length > 0) {
+          await prisma.user.update({ where: { id: user.id }, data });
+        }
+        // Fire-and-forget welcome DM. Failures are silent.
+        void sendSlackDm(profile.id, veeveeLine("firstSignIn", profile.id));
       } catch (err) {
         // Never block sign-in on a Slack lookup failure.
         // eslint-disable-next-line no-console

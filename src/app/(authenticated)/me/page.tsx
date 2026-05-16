@@ -21,6 +21,13 @@ import {
   scoreAwards,
 } from "@/lib/scoring-awards";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { veeveeLine } from "@/lib/veevee-voice";
+import { computeAchievementsForUser } from "@/lib/achievements";
+import { AchievementsRow } from "@/components/me/achievements-row";
+import { NemesisCard } from "@/components/me/nemesis-card";
+import { CelebrationTrigger } from "@/components/me/celebration-trigger";
+import { getLeaderboard } from "@/lib/leaderboard";
+import { isAiPlayer } from "@/lib/ai-players";
 
 const ROUND_LABELS = {
   R32: "Round of 32",
@@ -160,8 +167,36 @@ export default async function MePage() {
 
   const total = matchPoints + groupPoints + bracketScore.total + awardsScore.total;
 
+  const [achievements, leaderboard, me] = await Promise.all([
+    computeAchievementsForUser(userId),
+    getLeaderboard(),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { nemesisId: true },
+    }),
+  ]);
+
+  const currentUserRow = leaderboard.find((r) => r.userId === userId);
+  const nemesisRow = me?.nemesisId
+    ? leaderboard.find((r) => r.userId === me.nemesisId) ?? null
+    : null;
+  const nemesisCandidates = leaderboard.filter(
+    (r) => r.userId !== userId && !isAiPlayer(r.email)
+  );
+
+  const aiRows = leaderboard.filter((r) => isAiPlayer(r.email));
+
+  const myRankIndex = leaderboard.findIndex((r) => r.userId === userId);
+  const inTop3 = myRankIndex >= 0 && myRankIndex < 3;
+  const hasFirstExact = (currentUserRow?.exact ?? 0) >= 1;
+
   return (
     <PageContainer title="My predictions">
+      <CelebrationTrigger
+        userId={userId}
+        hasFirstExact={hasFirstExact}
+        inTop3={inTop3}
+      />
       <Card className="px-6">
         <div className="grid gap-3 md:grid-cols-5">
           <Stat label="Total points" value={total} />
@@ -171,6 +206,25 @@ export default async function MePage() {
           <Stat label="Awards points" value={awardsScore.total} />
         </div>
       </Card>
+
+      <Section title="Achievements">
+        <AchievementsRow achievements={achievements} />
+      </Section>
+
+      {currentUserRow && (
+        <Section title="Rivals">
+          <div className="grid gap-3 md:grid-cols-2">
+            <NemesisCard
+              currentUserRow={currentUserRow}
+              nemesisRow={nemesisRow}
+              candidates={nemesisCandidates}
+            />
+            {aiRows.length > 0 && (
+              <AiScoreboard yourTotal={currentUserRow.total} aiRows={aiRows} />
+            )}
+          </div>
+        </Section>
+      )}
 
       <Section title="Tournament awards">
         <div className="grid gap-2 md:grid-cols-2">
@@ -247,7 +301,7 @@ export default async function MePage() {
 
       <Section title="Group predictions">
         {groupBreakdown.length === 0 ? (
-          <EmptyHint>
+          <EmptyHint voice={veeveeLine("emptyGroups", userId)}>
             You haven&apos;t predicted any groups yet.{" "}
             <Link
               href="/groups"
@@ -288,7 +342,7 @@ export default async function MePage() {
 
       <Section title="Bracket">
         {bracketPicks.length === 0 ? (
-          <EmptyHint>
+          <EmptyHint voice={veeveeLine("emptyBracket", userId)}>
             You haven&apos;t submitted a bracket yet.{" "}
             <Link
               href="/bracket"
@@ -322,7 +376,7 @@ export default async function MePage() {
 
       <Section title="Match predictions">
         {predictions.length === 0 ? (
-          <EmptyHint>
+          <EmptyHint voice={veeveeLine("emptyMe", userId)}>
             You haven&apos;t submitted any match predictions yet.{" "}
             <Link
               href="/matches"
@@ -370,6 +424,11 @@ export default async function MePage() {
                         {p.homeScore}–{p.awayScore}
                       </span>
                     </div>
+                    {p.note && (
+                      <div className="px-4 italic body body-size-small text-[color:var(--color-text-tertiary)]">
+                        You said: &ldquo;{p.note}&rdquo;
+                      </div>
+                    )}
                     <div className="px-4 flex items-center justify-between body body-size-small">
                       <span className="text-[color:var(--color-text-tertiary)]">
                         {p.match.status === "FINISHED"
@@ -401,6 +460,55 @@ export default async function MePage() {
   );
 }
 
+function AiScoreboard({
+  yourTotal,
+  aiRows,
+}: {
+  yourTotal: number;
+  aiRows: { name: string | null; email: string; total: number }[];
+}) {
+  return (
+    <Card className="px-4 py-4 gap-3">
+      <div>
+        <p className="heading text-base">Vs the bots</p>
+        <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
+          VeeVee&apos;s seeded players. Beat them, mock them. Or both.
+        </p>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {aiRows.map((ai) => {
+          const delta = yourTotal - ai.total;
+          const ahead = delta > 0;
+          const tied = delta === 0;
+          return (
+            <li
+              key={ai.email}
+              className="flex items-center justify-between gap-3"
+            >
+              <span className="body body-size-medium">
+                {ai.name ?? ai.email.split("@")[0]}
+              </span>
+              <span
+                className={
+                  "code code-size-medium tabular-nums " +
+                  (ahead
+                    ? "text-[color:var(--color-accent-success)]"
+                    : tied
+                      ? "text-[color:var(--color-text-tertiary)]"
+                      : "text-[color:var(--color-accent-danger)]")
+                }
+              >
+                {ahead ? "+" : ""}
+                {delta}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -423,9 +531,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function EmptyHint({ children }: { children: React.ReactNode }) {
+function EmptyHint({
+  voice,
+  children,
+}: {
+  voice?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-dashed border-[color:var(--color-border-primary)] p-8 text-center body body-size-medium text-[color:var(--color-text-secondary)]">
+      {voice && (
+        <p className="italic text-[color:var(--color-text-tertiary)] mb-2">
+          {voice}
+        </p>
+      )}
       {children}
     </div>
   );

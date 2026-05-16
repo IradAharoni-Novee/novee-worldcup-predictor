@@ -44,14 +44,16 @@ function TeamRow({ team, score }: { team: TeamLite; score: number | null }) {
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         {team?.flag ? (
-          <Image
-            src={team.flag}
-            alt=""
-            width={20}
-            height={14}
-            className="size-5 rounded-sm object-contain"
-            unoptimized
-          />
+          <span className="size-5 relative shrink-0">
+            <Image
+              src={team.flag}
+              alt=""
+              fill
+              sizes="20px"
+              className="rounded-sm object-contain"
+              unoptimized
+            />
+          </span>
         ) : (
           <span className="size-5 rounded-sm bg-[color:var(--color-surface-emphasis)] grid place-items-center text-[10px] text-[color:var(--color-text-tertiary)]">
             ?

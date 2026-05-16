@@ -20,6 +20,7 @@ type SlackProfile = {
 };
 
 export type SlackProfileInfo = {
+  id: string;
   image: string | null;
   name: string | null;
 };
@@ -60,7 +61,35 @@ async function lookupOnce(
   const real = profile.real_name?.trim();
   const name = display && display.length > 0 ? display : real && real.length > 0 ? real : null;
 
-  return { image, name };
+  return { id: data.user.id, image, name };
+}
+
+/**
+ * Send a DM to a Slack user. Silently returns false when no token is
+ * configured or the call fails. Never throws — callers can fire-and-forget.
+ */
+export async function sendSlackDm(
+  slackUserId: string,
+  text: string
+): Promise<boolean> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${SLACK_API}/chat.postMessage`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ channel: slackUserId, text }),
+      cache: "no-store",
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { ok: boolean };
+    return data.ok;
+  } catch {
+    return false;
+  }
 }
 
 function fallbackEmails(email: string): string[] {

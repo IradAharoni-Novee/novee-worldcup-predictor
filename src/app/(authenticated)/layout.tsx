@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { TopBar } from "@/components/shell/top-bar";
+import { KonamiListener } from "@/components/easter-eggs/konami-listener";
+import { CommandPalette } from "@/components/easter-eggs/command-palette";
 
 export default async function AuthenticatedLayout({
   children,
@@ -27,6 +29,8 @@ export default async function AuthenticatedLayout({
         isAdmin={session.user.isAdmin}
       />
       <main className="mx-auto w-full max-w-6xl">{children}</main>
+      <KonamiListener />
+      <CommandPalette isAdmin={Boolean(session.user.isAdmin)} />
     </div>
   );
 }

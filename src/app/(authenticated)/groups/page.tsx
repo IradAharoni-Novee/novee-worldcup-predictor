@@ -16,6 +16,7 @@ import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { getGroupLockTimes } from "@/lib/locks";
 import { isLocked, formatKickoff } from "@/lib/format";
+import { veeveeLine } from "@/lib/veevee-voice";
 
 type TeamLite = {
   id: string;
@@ -201,7 +202,9 @@ export default async function GroupsPage() {
         })}
         {groups.length === 0 && (
           <div className="rounded-xl border border-dashed border-[color:var(--color-border-primary)] p-12 text-center body body-size-medium text-[color:var(--color-text-secondary)] md:col-span-2 xl:col-span-3">
-            No groups configured yet.
+            <p className="italic text-[color:var(--color-text-tertiary)]">
+              {veeveeLine("emptyGroups", userId)}
+            </p>
           </div>
         )}
       </div>

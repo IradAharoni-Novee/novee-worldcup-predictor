@@ -12,7 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { AnthropicMark, OpenAIMark } from "@/components/ui/brand-marks";
 import { getLeaderboard } from "@/lib/leaderboard";
+import { veeveeLine } from "@/lib/veevee-voice";
+import { aiPlayerKind } from "@/lib/ai-players";
+import { Odometer } from "@/components/ui/odometer";
 
 export default async function LeaderboardPage() {
   const session = await auth();
@@ -22,7 +26,10 @@ export default async function LeaderboardPage() {
     return (
       <PageContainer title="Leaderboard">
         <div className="rounded-xl border border-dashed border-[color:var(--color-border-primary)] p-12 text-center body body-size-medium text-[color:var(--color-text-secondary)]">
-          No predictions scored yet. Come back after the first match wraps up.
+          <p className="italic text-[color:var(--color-text-tertiary)] mb-2">
+            {veeveeLine("emptyLeaderboard", session?.user?.id)}
+          </p>
+          <p>Come back after the first match wraps up.</p>
         </div>
       </PageContainer>
     );
@@ -80,11 +87,10 @@ export default async function LeaderboardPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <UserAvatar
+                      <LeaderboardAvatar
                         email={row.email}
                         name={row.name}
                         image={row.image}
-                        size={32}
                       />
                       <div className="flex flex-col">
                         <span className="body body-weight-medium body-size-medium">
@@ -102,7 +108,10 @@ export default async function LeaderboardPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right code code-size-large tabular-nums">
-                    {row.total}
+                    <Odometer
+                      value={row.total}
+                      storageKey={`lb:total:${row.userId}`}
+                    />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {row.matchPoints}
@@ -130,4 +139,20 @@ export default async function LeaderboardPage() {
       </Card>
     </PageContainer>
   );
+}
+
+function LeaderboardAvatar({
+  email,
+  name,
+  image,
+}: {
+  email: string;
+  name: string | null;
+  image: string | null;
+}) {
+  const kind = aiPlayerKind(email);
+  if (kind === "opus") return <AnthropicMark size={32} />;
+  if (kind === "gpt") return <OpenAIMark size={32} />;
+  // The 0-0 bot and humans both fall through to the default avatar.
+  return <UserAvatar email={email} name={name} image={image} size={32} />;
 }

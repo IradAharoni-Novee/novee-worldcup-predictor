@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { CosmicLogo } from "@/components/easter-eggs/cosmic-logo";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { signOutAction } from "@/lib/actions/sign-out";
 
@@ -35,10 +35,12 @@ export function TopBar({
     <header className="border-b border-[color:var(--color-border-primary)] bg-[var(--nav-top-bg)]">
       <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <VeeVeeLogo size={28} />
-            <span className="heading text-base">World Cup Predictor</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <CosmicLogo size={28} />
+            <Link href="/" className="heading text-base">
+              World Cup Predictor
+            </Link>
+          </div>
           <nav className="flex items-center gap-1">
             {NAV.map((link) => {
               const active =

@@ -11,6 +11,9 @@ import { PageContainer } from "@/components/shell/page-container";
 import { formatKickoff, isLocked, stageLabel } from "@/lib/format";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
+import { veeveeLine } from "@/lib/veevee-voice";
+import { getPickAggregates } from "@/lib/pick-aggregates";
+import { PickHistogram } from "@/components/match/pick-histogram";
 
 function stageChipColor(stage: Stage): ChipColor {
   switch (stage) {
@@ -56,6 +59,51 @@ export default async function MatchDetailPage({
           homeScore: match.homeScore,
           awayScore: match.awayScore,
         })
+      : null;
+
+  // After kickoff, surface everyone's hot takes (anonymized) and the pick
+  // histogram. Hot takes skip the current user's note since it's shown above
+  // in the locked summary.
+  const [hotTakes, aggregates] = await Promise.all([
+    locked
+      ? prisma.prediction.findMany({
+          where: {
+            matchId: id,
+            note: { not: null },
+            userId: { not: userId },
+          },
+          select: {
+            id: true,
+            note: true,
+            homeScore: true,
+            awayScore: true,
+          },
+          take: 50,
+        })
+      : Promise.resolve([]),
+    locked
+      ? getPickAggregates(id)
+      : Promise.resolve({ total: 0, buckets: [] }),
+  ]);
+
+  const consensusForUser =
+    prediction && aggregates.buckets[0]
+      ? aggregates.buckets[0].homeScore === prediction.homeScore &&
+        aggregates.buckets[0].awayScore === prediction.awayScore
+      : false;
+  const ownPickShare =
+    prediction
+      ? aggregates.buckets.find(
+          (b) =>
+            b.homeScore === prediction.homeScore &&
+            b.awayScore === prediction.awayScore
+        )?.percent ?? 0
+      : 0;
+  const contrarianFlavor = prediction && ownPickShare > 0 && ownPickShare < 5;
+  const histogramVoice = consensusForUser
+    ? veeveeLine("consensus", id)
+    : contrarianFlavor
+      ? veeveeLine("contrarian", id)
       : null;
 
   return (
@@ -118,6 +166,64 @@ export default async function MatchDetailPage({
           />
         </CardContent>
       </Card>
+
+      {locked && aggregates.total > 0 && (
+        <section className="mt-6">
+          <h2 className="subheading subheading-size-large subheading-weight-medium mb-1">
+            What the room picked
+          </h2>
+          {histogramVoice && (
+            <p className="body body-size-small text-[color:var(--color-text-tertiary)] mb-3 italic">
+              {histogramVoice}
+            </p>
+          )}
+          <PickHistogram
+            buckets={aggregates.buckets}
+            total={aggregates.total}
+            yourPick={
+              prediction
+                ? {
+                    homeScore: prediction.homeScore,
+                    awayScore: prediction.awayScore,
+                  }
+                : null
+            }
+            actual={
+              match.homeScore != null && match.awayScore != null
+                ? { homeScore: match.homeScore, awayScore: match.awayScore }
+                : null
+            }
+          />
+          <p className="body body-size-xsmall text-[color:var(--color-text-tertiary)] mt-2">
+            Based on {aggregates.total} prediction
+            {aggregates.total === 1 ? "" : "s"}.
+          </p>
+        </section>
+      )}
+
+      {locked && hotTakes.length > 0 && (
+        <section className="mt-6">
+          <h2 className="subheading subheading-size-large subheading-weight-medium mb-1">
+            Hot takes from the room
+          </h2>
+          <p className="body body-size-small text-[color:var(--color-text-tertiary)] mb-3 italic">
+            {veeveeLine("hotTakeReveal", id)}
+          </p>
+          <ul className="flex flex-col gap-2">
+            {hotTakes.map((t) => (
+              <li
+                key={t.id}
+                className="rounded-md border border-[color:var(--color-border-secondary)] px-4 py-2 body body-size-small flex items-center justify-between gap-3"
+              >
+                <span className="italic">&ldquo;{t.note}&rdquo;</span>
+                <span className="code code-size-small tabular-nums text-[color:var(--color-text-tertiary)] shrink-0">
+                  {t.homeScore}–{t.awayScore}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </PageContainer>
   );
 }
@@ -130,14 +236,16 @@ function TeamBlock({
   return (
     <div className="flex flex-col items-center gap-2">
       {team?.flag ? (
-        <Image
-          src={team.flag}
-          alt=""
-          width={56}
-          height={40}
-          className="size-12 rounded-md object-contain"
-          unoptimized
-        />
+        <span className="size-12 relative shrink-0">
+          <Image
+            src={team.flag}
+            alt=""
+            fill
+            sizes="48px"
+            className="rounded-md object-contain"
+            unoptimized
+          />
+        </span>
       ) : (
         <div className="size-12 rounded-md bg-[color:var(--color-surface-emphasis)] grid place-items-center text-[color:var(--color-text-tertiary)]">
           ?

@@ -4,6 +4,7 @@ import { MatchCard } from "@/components/match/match-card";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { scorePrediction } from "@/lib/scoring";
+import { veeveeLine } from "@/lib/veevee-voice";
 
 type Filter = "upcoming" | "live" | "finished";
 
@@ -43,7 +44,9 @@ export default async function MatchesPage({
     if (list.length === 0) {
       return (
         <div className="rounded-xl border border-dashed border-[color:var(--color-border-primary)] p-12 text-center body body-size-medium text-[color:var(--color-text-secondary)]">
-          Nothing here yet.
+          <p className="italic text-[color:var(--color-text-tertiary)]">
+            {veeveeLine("emptyMatches", userId)}
+          </p>
         </div>
       );
     }

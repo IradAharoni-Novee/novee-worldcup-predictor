@@ -20,6 +20,10 @@ model User {
   passwordHash               String?
   isAdmin                    Boolean                     @default(false)
   createdAt                  DateTime                    @default(now())
+  // Self-FK: pick a colleague as your nemesis. /me surfaces an H2H delta.
+  nemesisId                  String?
+  nemesis                    User?                       @relation("UserNemesis", fields: [nemesisId], references: [id], onDelete: SetNull)
+  enemyOf                    User[]                      @relation("UserNemesis")
   accounts                   Account[]
   sessions                   Session[]
   predictions                Prediction[]
@@ -144,6 +148,9 @@ model Prediction {
   matchId     String
   homeScore   Int
   awayScore   Int
+  // Optional 80-char "hot take" attached to the prediction. Revealed
+  // retroactively on /me and on the match detail page after kickoff.
+  note        String?
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
