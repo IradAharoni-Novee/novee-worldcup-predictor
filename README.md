@@ -36,6 +36,7 @@ Open <http://localhost:3000>. Sign in with any email — the magic link will arr
 | `AUTH_EMAIL_FROM` | Sender for magic-link emails, e.g. `"Predictor <noreply@yourdomain.com>"`. |
 | `FOOTBALL_DATA_TOKEN` | Free token from [football-data.org](https://www.football-data.org/client/register). |
 | `CRON_SECRET` | `openssl rand -hex 32`. Used by `/api/cron/sync`. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional Google OAuth (Workspace SSO). Without these, the "Continue with Google" button on `/signin` will fail; email + password still works. |
 
 ## Making yourself an admin
 

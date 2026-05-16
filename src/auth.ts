@@ -2,9 +2,10 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Resend from "next-auth/providers/resend";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
-import { isAllowedEmail } from "@/lib/email-allowlist";
+import { ALLOWED_EMAIL_DOMAIN, isAllowedEmail } from "@/lib/email-allowlist";
 import { fetchSlackProfile, sendSlackDm } from "@/lib/slack";
 import { verifyPassword } from "@/lib/password";
 import { veeveeLine } from "@/lib/veevee-voice";
@@ -17,6 +18,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // JWT strategy so the proxy can validate the session on the edge without DB.
   session: { strategy: "jwt" },
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // `hd` hints Google's account chooser to the Novee Workspace. It's a
+      // UX hint, not a security boundary — the signIn callback enforces the
+      // domain.
+      authorization: {
+        params: { hd: ALLOWED_EMAIL_DOMAIN, prompt: "select_account" },
+      },
+      // Link Google sign-ins to an existing user with the same email. Safe
+      // here because Google verifies emails and the allowlist restricts to a
+      // single workspace domain.
+      allowDangerousEmailAccountLinking: true,
+    }),
     Credentials({
       name: "Email + Password",
       credentials: {
@@ -104,11 +119,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     ...authConfig.callbacks,
-    async signIn({ user }) {
+    async signIn({ user, account, profile }) {
       // Belt-and-suspenders: refuse sign-in for any non-allowed domain even if
       // someone bypassed the /signin form (e.g., a forged magic-link request).
       const addr = user?.email ?? "";
-      return isAllowedEmail(addr);
+      if (!isAllowedEmail(addr)) return false;
+      // For Google, also require a verified email so a malicious OAuth client
+      // can't claim an unverified novee.security address.
+      if (account?.provider === "google" && profile?.email_verified !== true) {
+        return false;
+      }
+      return true;
     },
     async jwt({ token, user }) {
       // On initial sign-in `user` is the DB row; persist id + isAdmin into the JWT.
