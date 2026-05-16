@@ -24,18 +24,19 @@ export function InlineScoreEditor({
   matchId: string;
   initial: Initial;
 }) {
-  const initialHome = initial?.homeScore ?? null;
-  const initialAway = initial?.awayScore ?? null;
-  const [home, setHome] = useState(initialHome ?? 0);
-  const [away, setAway] = useState(initialAway ?? 0);
+  const initialHome = initial?.homeScore ?? 0;
+  const initialAway = initial?.awayScore ?? 0;
+  const [home, setHome] = useState(initialHome);
+  const [away, setAway] = useState(initialAway);
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<
     "idle" | "saved" | { error: string }
   >("idle");
   const [historicGlyph, setHistoricGlyph] = useState<string | null>(null);
-  // Track the (homeScore, awayScore) pair the server already has. Null means
-  // the user hasn't submitted yet — first real change always triggers a save.
-  const lastSavedRef = useRef<readonly [number | null, number | null]>([
+  // Track the (homeScore, awayScore) pair the server already has. Seeded to
+  // the displayed values (0–0 when there's no prior pick) so the initial
+  // mount is a no-op — only real user edits trigger a save.
+  const lastSavedRef = useRef<readonly [number, number]>([
     initialHome,
     initialAway,
   ]);
