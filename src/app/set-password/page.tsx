@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { WorldCupLogo } from "@/components/ui/novee-logo";
 import { SetPasswordForm } from "@/components/auth/set-password-form";
 
 export default async function SetPasswordPage() {
@@ -28,7 +28,7 @@ export default async function SetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <VeeVeeLogo size={36} />
+            <WorldCupLogo size={40} priority />
             <div className="flex flex-col gap-0.5">
               <CardTitle>
                 {isReset ? "Reset your password" : "Set a password"}

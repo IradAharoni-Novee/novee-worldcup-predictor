@@ -9,8 +9,8 @@ const PROTECTED_PREFIXES = [
 ];
 
 // Edge-safe Auth.js config (no providers, no DB adapter, no Node-only imports).
-// Used by middleware/proxy. The full config (with Prisma adapter + Resend
-// provider) is in src/auth.ts.
+// Used by the edge proxy (src/proxy.ts). The full config (with Prisma adapter
+// + Resend provider) is in src/auth.ts.
 export const authConfig = {
   providers: [],
   pages: {

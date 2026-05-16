@@ -19,6 +19,10 @@ const robotoMono = Roboto_Mono({
 export const metadata: Metadata = {
   title: "World Cup 2026 Predictor",
   description: "Predict every match of the FIFA World Cup 2026 with friends.",
+  icons: {
+    icon: "/novee-worldcup.png",
+    apple: "/novee-worldcup.png",
+  },
 };
 
 export default function RootLayout({

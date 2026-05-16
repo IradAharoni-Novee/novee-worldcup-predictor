@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { WorldCupLogo } from "@/components/ui/novee-logo";
 import {
   ALLOWED_EMAIL_DOMAIN,
   ALLOWED_EMAIL_MESSAGE,
@@ -100,7 +100,7 @@ export default async function SignInPage({
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <VeeVeeLogo size={36} />
+            <WorldCupLogo size={40} priority />
             <div className="flex flex-col gap-0.5">
               <CardTitle>Sign in</CardTitle>
               <CardDescription>

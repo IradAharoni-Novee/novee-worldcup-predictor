@@ -14,7 +14,7 @@ const isProd = process.env.NODE_ENV === "production";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
-  // JWT strategy so the middleware can validate the session on the edge without DB.
+  // JWT strategy so the proxy can validate the session on the edge without DB.
   session: { strategy: "jwt" },
   providers: [
     Credentials({

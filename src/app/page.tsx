@@ -23,7 +23,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { VeeVeeLogo } from "@/components/ui/novee-logo";
+import { WorldCupLogo } from "@/components/ui/novee-logo";
 import { CosmicBackground } from "@/components/marketing/cosmic-background";
 import { ALLOWED_EMAIL_DOMAIN } from "@/lib/email-allowlist";
 
@@ -67,7 +67,7 @@ export default async function LandingPage() {
       <header className="relative border-b border-white/10 backdrop-blur-md bg-black/40">
         <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <VeeVeeLogo size={28} />
+            <WorldCupLogo size={32} priority />
             <span className="heading text-base text-white">World Cup Predictor</span>
           </Link>
           <div className="flex items-center gap-3">
@@ -100,58 +100,75 @@ export default async function LandingPage() {
       <section className="relative flex-1 grid place-items-center px-6 py-16">
         <div className="w-full max-w-6xl">
           {/* Hero copy, sitting directly on the cosmic background */}
-          <div className="mb-10 flex flex-col items-start gap-5">
-            <Chip
-              size="small"
-              color="brand"
-              label={
-                <>
-                  <VeeVeeLogo size={14} />
-                  <span>For Novee employees</span>
-                </>
-              }
-              className="border-white/15 bg-white/5 text-white backdrop-blur"
-            />
-            <h1 className="text-5xl md:text-7xl font-medium leading-[1.02] tracking-tight max-w-4xl">
-              <span
-                className="bg-clip-text text-transparent"
+          <div className="mb-10 grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_auto] md:gap-16">
+            <div className="flex flex-col items-start gap-5">
+              <Chip
+                size="small"
+                color="brand"
+                label={
+                  <>
+                    <WorldCupLogo size={16} />
+                    <span>For Novee employees</span>
+                  </>
+                }
+                className="border-white/15 bg-white/5 text-white backdrop-blur"
+              />
+              <h1 className="text-5xl md:text-7xl font-medium leading-[1.02] tracking-tight max-w-4xl">
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(180deg, #ffffff 0%, #f0e8ff 100%)",
+                  }}
+                >
+                  Predict every match.
+                </span>
+                <br />
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, #ae92ff 0%, #8e55fd 50%, #c3b0ff 100%)",
+                  }}
+                >
+                  Out-play your team.
+                </span>
+              </h1>
+              <p className="text-lg md:text-xl text-white/70 max-w-2xl">
+                The Novee internal World Cup 2026 game. 104 matches, one live
+                leaderboard, double points in the knockouts. Pick early, climb
+                fast.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button asChild size="lg" className="shadow-[0_0_40px_-8px_rgba(142,85,253,0.7)]">
+                  <Link href={ctaHref}>
+                    {ctaLabel} <ChevronRight className="size-4" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                >
+                  <a href="#how-it-works">How it works</a>
+                </Button>
+              </div>
+            </div>
+            <div className="relative mx-auto md:mx-0">
+              <div
+                aria-hidden
+                className="absolute inset-0 -m-16 rounded-full blur-3xl pointer-events-none"
                 style={{
-                  backgroundImage:
-                    "linear-gradient(180deg, #ffffff 0%, #f0e8ff 100%)",
+                  background:
+                    "radial-gradient(circle, rgba(142,85,253,0.55) 0%, transparent 70%)",
                 }}
-              >
-                Predict every match.
-              </span>
-              <br />
-              <span
-                className="bg-clip-text text-transparent"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(90deg, #ae92ff 0%, #8e55fd 50%, #c3b0ff 100%)",
-                }}
-              >
-                Out-play your team.
-              </span>
-            </h1>
-            <p className="text-lg md:text-xl text-white/70 max-w-2xl">
-              The Novee internal World Cup 2026 game. 104 matches, one live
-              leaderboard, double points in the knockouts. Pick early, climb
-              fast.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button asChild size="lg" className="shadow-[0_0_40px_-8px_rgba(142,85,253,0.7)]">
-                <Link href={ctaHref}>
-                  {ctaLabel} <ChevronRight className="size-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-              >
-                <a href="#how-it-works">How it works</a>
-              </Button>
+              />
+              <WorldCupLogo
+                size={420}
+                priority
+                className="relative size-56 md:size-[360px] lg:size-[420px] drop-shadow-[0_30px_80px_rgba(142,85,253,0.55)]"
+              />
             </div>
           </div>
 
@@ -353,7 +370,7 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-6xl px-6 flex items-center justify-between text-sm text-white/60">
           <span>Built for the Novee team. Not affiliated with FIFA.</span>
           <span className="flex items-center gap-2">
-            <VeeVeeLogo size={16} /> Novee
+            <WorldCupLogo size={18} /> Novee
           </span>
         </div>
       </footer>
