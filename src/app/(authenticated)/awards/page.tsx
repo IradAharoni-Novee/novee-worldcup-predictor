@@ -110,9 +110,9 @@ export default async function AwardsPage() {
 
   return (
     <PageContainer title="Awards">
-      <Card className="px-6 py-4 mb-4">
+      <Card className="px-4 sm:px-6 py-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="body body-size-small text-[color:var(--color-text-secondary)]">
               {locked
                 ? "Tournament has started — picks are locked"

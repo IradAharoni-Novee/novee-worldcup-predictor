@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -23,6 +23,13 @@ export const metadata: Metadata = {
     icon: "/novee-worldcup.png",
     apple: "/novee-worldcup.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0d0620",
 };
 
 export default function RootLayout({

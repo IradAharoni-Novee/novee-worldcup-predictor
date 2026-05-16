@@ -21,14 +21,14 @@ export default async function AuthenticatedLayout({
   if (!me?.passwordHash) redirect("/set-password");
 
   return (
-    <div className="grid grid-rows-[auto_1fr] min-h-screen">
+    <div className="grid grid-rows-[auto_1fr] grid-cols-[minmax(0,1fr)] min-h-screen">
       <TopBar
         userEmail={session.user.email}
         userName={me.name}
         userImage={me.image}
         isAdmin={session.user.isAdmin}
       />
-      <main className="mx-auto w-full max-w-6xl">{children}</main>
+      <main className="mx-auto w-full max-w-6xl min-w-0">{children}</main>
       <KonamiListener />
       <CommandPalette isAdmin={Boolean(session.user.isAdmin)} />
     </div>
