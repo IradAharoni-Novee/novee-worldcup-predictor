@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { Stage } from "@prisma/client";
+import { MapPin } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
+import { formatKickoff, stageLabel } from "@/lib/format";
 import {
   BracketPredictorForm,
   type Team,
@@ -55,12 +57,20 @@ export default async function BracketPage() {
     prisma.bracketPick.findMany({ where: { userId } }),
     prisma.match.findMany({
       where: { stage: { in: ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] } },
+      orderBy: { kickoff: "asc" },
       select: {
+        id: true,
         stage: true,
+        kickoff: true,
+        venue: true,
+        city: true,
+        country: true,
         homeTeamId: true,
         awayTeamId: true,
         homeScore: true,
         awayScore: true,
+        homeTeam: { select: { name: true, code: true, flag: true } },
+        awayTeam: { select: { name: true, code: true, flag: true } },
       },
     }),
     isBracketLocked(),
@@ -158,6 +168,16 @@ function WideBleed({ children }: { children: React.ReactNode }) {
   );
 }
 
+type ScheduleMatch = KnockoutMatch & {
+  id: string;
+  kickoff: Date;
+  venue: string | null;
+  city: string | null;
+  country: string | null;
+  homeTeam: { name: string; code: string; flag: string | null } | null;
+  awayTeam: { name: string; code: string; flag: string | null } | null;
+};
+
 function LockedBracket({
   teamsById,
   bracketPicks,
@@ -166,7 +186,7 @@ function LockedBracket({
 }: {
   teamsById: Record<string, Team>;
   bracketPicks: { round: Stage; slot: number; teamId: string }[];
-  knockoutMatches: KnockoutMatch[];
+  knockoutMatches: ScheduleMatch[];
   config: ScoringConfig;
 }) {
   const advancers = computeAdvancers(knockoutMatches);
@@ -241,6 +261,60 @@ function LockedBracket({
           );
         })}
       </div>
+
+      <KnockoutSchedule matches={knockoutMatches} />
     </>
+  );
+}
+
+function KnockoutSchedule({ matches }: { matches: ScheduleMatch[] }) {
+  if (matches.length === 0) return null;
+  return (
+    <section className="mt-6">
+      <h2 className="subheading subheading-size-large subheading-weight-medium mb-3">
+        Knockout schedule
+      </h2>
+      <Card className="px-0 py-0 overflow-hidden">
+        <ul className="divide-y divide-[color:var(--color-border-secondary)]">
+          {matches.map((m) => {
+            const home = m.homeTeam?.name ?? "TBD";
+            const away = m.awayTeam?.name ?? "TBD";
+            const locationParts = [m.city, m.country].filter(Boolean);
+            return (
+              <li
+                key={m.id}
+                className="px-4 py-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Chip size="small" color="slate" label={stageLabel(m.stage, null)} />
+                  <span className="body body-size-medium truncate">
+                    {home} <span className="text-[color:var(--color-text-tertiary)]">vs</span> {away}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 body body-size-small text-[color:var(--color-text-secondary)]">
+                  <span className="text-[color:var(--color-text-tertiary)] shrink-0">
+                    {formatKickoff(m.kickoff)}
+                  </span>
+                  {m.venue && (
+                    <span className="flex items-start gap-1 min-w-0">
+                      <MapPin className="size-3.5 mt-0.5 shrink-0 text-[color:var(--color-text-tertiary)]" />
+                      <span className="truncate">
+                        <span>{m.venue}</span>
+                        {locationParts.length > 0 && (
+                          <span className="text-[color:var(--color-text-tertiary)]">
+                            {" · "}
+                            {locationParts.join(", ")}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    </section>
   );
 }

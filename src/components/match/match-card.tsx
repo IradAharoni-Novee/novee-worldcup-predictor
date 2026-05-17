@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUpRight, Lock, Trophy } from "lucide-react";
+import { ArrowUpRight, Lock, MapPin, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
@@ -14,6 +14,9 @@ export type MatchCardProps = {
   stage: "GROUP" | "R32" | "R16" | "QF" | "SF" | "THIRD" | "FINAL";
   group: string | null;
   kickoff: Date;
+  venue: string | null;
+  city: string | null;
+  country: string | null;
   homeTeam: TeamLite;
   awayTeam: TeamLite;
   homeScore: number | null;
@@ -75,6 +78,9 @@ export function MatchCard({
   stage,
   group,
   kickoff,
+  venue,
+  city,
+  country,
   homeTeam,
   awayTeam,
   homeScore,
@@ -84,6 +90,7 @@ export function MatchCard({
   points,
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
+  const locationParts = [city, country].filter(Boolean);
   return (
     <Card className="gap-3 py-4 hover:border-[color:var(--color-border-hover)] transition-colors">
       <div className="flex items-center justify-between px-4">
@@ -120,6 +127,19 @@ export function MatchCard({
         <TeamRow team={homeTeam} score={homeScore} />
         <TeamRow team={awayTeam} score={awayScore} />
       </div>
+      {venue && (
+        <div className="px-4 flex items-start gap-1.5 body body-size-small text-[color:var(--color-text-tertiary)]">
+          <MapPin className="size-3.5 mt-0.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="text-[color:var(--color-text-secondary)]">
+              {venue}
+            </span>
+            {locationParts.length > 0 && (
+              <span> · {locationParts.join(", ")}</span>
+            )}
+          </span>
+        </div>
+      )}
       <div className="px-4 pt-2 border-t border-[color:var(--color-border-secondary)]">
         {locked ? (
           <div className="flex items-center justify-between">
