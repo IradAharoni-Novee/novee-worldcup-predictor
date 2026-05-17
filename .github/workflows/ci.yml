@@ -34,5 +34,5 @@ jobs:
         env:
           # Build step doesn't need real DB; Prisma client only needs the URL syntax-valid
           DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
-          DIRECT_URL: postgresql://stub:stub@localhost:5432/stub
+          DATABASE_URL_UNPOOLED: postgresql://stub:stub@localhost:5432/stub
           AUTH_SECRET: ci-stub-secret

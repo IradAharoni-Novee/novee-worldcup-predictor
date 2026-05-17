@@ -8,7 +8,8 @@ Package manager is **pnpm**. Node uses ESM (`"type": "module"`).
 
 ```bash
 pnpm dev                # Next.js dev server (http://localhost:3000)
-pnpm build              # prisma generate + next build (build always regenerates the client)
+pnpm build              # prisma generate + next build (CI uses this — no migrate)
+                        # vercel-build  # what Vercel runs: prisma migrate deploy + prisma generate + next build
 pnpm start              # production server
 
 pnpm lint               # next lint (ESLint)
@@ -97,4 +98,4 @@ Vitest covers the pure scoring/seeding/standings logic (`tests/*.test.ts`). Ther
 Required: `DATABASE_URL`, `AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `FOOTBALL_DATA_TOKEN`, `CRON_SECRET`.
 Optional: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (Google OAuth — without them the "Continue with Google" button on `/signin` will error); `SLACK_BOT_TOKEN` (+ `SLACK_EMAIL_DOMAINS` fallback list) for first-sign-in profile lookup.
 
-When changing the schema, always create a Prisma migration with `pnpm prisma:migrate` — `pnpm build` runs `prisma generate` but does not apply pending migrations.
+When changing the schema, always create a Prisma migration with `pnpm prisma:migrate`. Vercel runs the `vercel-build` script (`prisma migrate deploy && prisma generate && next build`) for every deploy — preview branches and prod — so any committed migration is applied to whichever DB the build's `DATABASE_URL` points at. The Neon–Vercel integration provisions an ephemeral Neon branch per Vercel preview and injects `DATABASE_URL` + `DATABASE_URL_UNPOOLED`; production maps to Neon's default branch (`main`).

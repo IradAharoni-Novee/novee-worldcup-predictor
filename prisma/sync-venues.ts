@@ -3,7 +3,7 @@
 // inside the daily /api/cron/sync route. Useful for backfilling or local
 // testing.
 //
-// Run: set -a && source .env.local && set +a && pnpm exec tsx prisma/sync-venues.ts
+// Run: pnpm exec tsx prisma/sync-venues.ts
 
 import { prisma } from "@/lib/prisma";
 import { syncVenuesFromEspn } from "@/lib/sync";
