@@ -6,23 +6,39 @@
  * id (or email) as the seed; pass undefined to share the same line across
  * everyone for that day.
  *
- * To add a Novee-specific touch, fill in NOVEE_VOICE_TUNING below. Lines that
- * reference {{CATCHPHRASE}} are dropped from the pool when the catchphrase is
- * empty — so VeeVee never says "{{CATCHPHRASE}}" out loud.
+ * Novee-specific flavor lives in NOVEE_VOICE_TUNING below. Lines that
+ * reference {{CATCHPHRASE}}, {{PERSON}}, {{MOMENT}}, or {{OPINION}} are
+ * dropped from the pool when the matching array is empty.
+ *
+ * Source for the strings in NOVEE_VOICE_TUNING: the #novee-memes Slack
+ * archive — update them in this file directly when the lore evolves.
  */
 
-// TODO(novee): replace these placeholders once Shira & co. send the real material.
-// Grep for "[REPLACE_ME" to find every spot they affect in the UI.
-export const NOVEE_VOICE_TUNING = {
-  // Recurring phrase / meme — splices into VeeVee's voice. Empty string drops
-  // the line entirely; a placeholder makes the line show up in the UI.
-  catchphrase: "[REPLACE_ME: a recurring Slack phrase]",
-  // A teammate known for a specific take. Used in achievement copy on /me.
-  personName: "[REPLACE_ME: teammate]",
-  // A past internal moment / running gag. Shows up in the Cmd+K command palette.
-  moment: "[REPLACE_ME: an internal moment]",
-  // A pet topic / opinion VeeVee can riff on. Reserved for the weekly digest.
-  opinion: "[REPLACE_ME: a hot topic]",
+export type TuningKey = "catchphrase" | "personName" | "moment" | "opinion";
+
+export const NOVEE_VOICE_TUNING: Record<TuningKey, readonly string[]> = {
+  // Recurring Slack phrases / memes — short enough to splice inline.
+  catchphrase: ["LGTM", "LFG", "Cool Hatul", "GonBot Approves"],
+  // Teammates with strong takes. Lidor gets memed the most; Or runs the
+  // MemeKing factory; Barak thinks he's an expert.
+  personName: ["Barak", "Lidor", "Dancig", "Ninburg"],
+  // Inside moments that everyone in the office remembers.
+  moment: [
+    "Lidor stuck in Thailand for two months",
+    "Omer and his sandals",
+    "Chicken Station closed during the holiday",
+    "End-of-month Bedrock bill",
+    "box novee-tenant-dev vs box novee-tenant-prod",
+    "Models team's 'it could take years' promise",
+  ],
+  // Hot opinions / pet debates the office keeps relitigating.
+  opinion: [
+    "Issue or Lead in Product",
+    "Claude or Cursor",
+    "Samuel or שמואל",
+    "Backoffice or POV Explorer",
+    "Novee V2 or VeeVee V3",
+  ],
 };
 
 export type VoiceCategory =
@@ -47,6 +63,7 @@ const LINES: Record<VoiceCategory, readonly string[]> = {
     "Nothing here. VeeVee is patient. The cosmos less so.",
     "An empty slate. Brief, like the tournament's pre-match silence.",
     "VeeVee senses potential. Mostly unrealised. {{CATCHPHRASE}}",
+    "Empty page. {{PERSON}} would already have a hot take.",
   ],
   emptyMatches: [
     "No matches in this orbit. VeeVee waits.",
@@ -57,6 +74,7 @@ const LINES: Record<VoiceCategory, readonly string[]> = {
     "No scores yet. VeeVee is sharpening its quill.",
     "The board is blank. Everyone is equal. Briefly.",
     "Predictions exist. Outcomes do not. Yet.",
+    "Board's empty. So is Chicken Station, apparently.",
   ],
   emptyGroups: [
     "No groups configured. VeeVee senses an admin somewhere.",
@@ -76,6 +94,7 @@ const LINES: Record<VoiceCategory, readonly string[]> = {
     "VeeVee files this under 'bold'.",
     "Noted. VeeVee remembers everything. {{CATCHPHRASE}}",
     "Done. The bracket trembles, faintly.",
+    "Locked in. {{PERSON}} would never.",
   ],
   lockedConfirm: [
     "Locked. The match has begun. VeeVee cannot help you now.",
@@ -97,26 +116,18 @@ const LINES: Record<VoiceCategory, readonly string[]> = {
     "You said this. The record stands.",
     "VeeVee remembers everything. Including this.",
     "This aged like milk in a stadium.",
+    "Receipts kept. Filed next to {{MOMENT}}.",
   ],
   consensus: [
     "You picked with the crowd. Safe is fine. Safe is fine.",
     "VeeVee notes: you are not alone.",
+    "Picked with the crowd. Like everyone arguing about {{OPINION}}.",
   ],
   contrarian: [
     "Bold. Lonely. Possibly correct.",
     "VeeVee respects a hot take. The leaderboard does not.",
   ],
 };
-
-function expand(line: string): string | null {
-  if (!line.includes("{{")) return line;
-  if (line.includes("{{CATCHPHRASE}}")) {
-    const phrase = NOVEE_VOICE_TUNING.catchphrase;
-    if (!phrase) return null;
-    return line.replaceAll("{{CATCHPHRASE}}", phrase);
-  }
-  return line;
-}
 
 function hash(input: string): number {
   let h = 2166136261;
@@ -132,6 +143,37 @@ function todayKey(): string {
 }
 
 /**
+ * Pick one entry from NOVEE_VOICE_TUNING[key] deterministically per
+ * (seed, key, day). Returns null when the array is empty so callers can
+ * fail-soft (drop the line, skip the achievement, etc.).
+ */
+export function noveeTuning(key: TuningKey, seed?: string): string | null {
+  const pool = NOVEE_VOICE_TUNING[key];
+  if (pool.length === 0) return null;
+  const idx = hash(`${seed ?? "shared"}:tuning:${key}:${todayKey()}`) % pool.length;
+  return pool[idx]!;
+}
+
+const TOKEN_TO_KEY: Record<string, TuningKey> = {
+  "{{CATCHPHRASE}}": "catchphrase",
+  "{{PERSON}}": "personName",
+  "{{MOMENT}}": "moment",
+  "{{OPINION}}": "opinion",
+};
+
+function expand(line: string, seed?: string): string | null {
+  if (!line.includes("{{")) return line;
+  let out = line;
+  for (const [token, key] of Object.entries(TOKEN_TO_KEY)) {
+    if (!out.includes(token)) continue;
+    const value = noveeTuning(key, seed);
+    if (value === null) return null;
+    out = out.replaceAll(token, value);
+  }
+  return out;
+}
+
+/**
  * Pick a stable VeeVee line for the given category, seeded so the same
  * (seed, category, day) returns the same string but rotates daily.
  *
@@ -142,7 +184,7 @@ function todayKey(): string {
  */
 export function veeveeLine(category: VoiceCategory, seed?: string): string {
   const candidates = LINES[category]
-    .map(expand)
+    .map((line) => expand(line, seed))
     .filter((s): s is string => s !== null);
   const pool = candidates.length > 0 ? candidates : LINES[category];
   const key = `${seed ?? "shared"}:${category}:${todayKey()}`;

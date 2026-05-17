@@ -38,10 +38,10 @@ function buildItems(isAdmin: boolean): CommandItem[] {
       action: { kind: "toast", message: "Sent. Good luck." },
     },
   ];
-  if (NOVEE_VOICE_TUNING.moment) {
+  for (const [i, moment] of NOVEE_VOICE_TUNING.moment.entries()) {
     base.push({
-      id: "moment",
-      label: NOVEE_VOICE_TUNING.moment,
+      id: `moment-${i}`,
+      label: moment,
       hint: "Never forget",
       action: { kind: "toast", message: "VeeVee remembers." },
     });
