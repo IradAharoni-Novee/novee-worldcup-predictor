@@ -242,3 +242,32 @@ model ThirdPlaceQualifierPick {
   @@unique([userId, teamId])
   @@index([userId])
 }
+
+// CTF — intentionally isolated from the predictor domain. No FKs to Prediction,
+// BracketPick, Setting, or any scoring surface. Code paths that touch these
+// tables are append-only: users can create CtfCapture rows but never update or
+// delete anything in either table from a web action.
+
+model CtfFlag {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  code           String       @unique
+  points         Int          @default(10)
+  hint           String
+  discoveryHint  String
+  createdAt      DateTime     @default(now())
+  captures       CtfCapture[]
+}
+
+model CtfCapture {
+  id         String   @id @default(cuid())
+  userId     String
+  flagId     String
+  capturedAt DateTime @default(now())
+
+  flag CtfFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flagId])
+  @@index([userId])
+  @@index([flagId])
+}
