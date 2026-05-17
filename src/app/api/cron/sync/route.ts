@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { syncFromFootballData } from "@/lib/sync";
+import { syncFromFootballData, syncVenuesFromEspn } from "@/lib/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +21,17 @@ async function handle(req: Request) {
   if (header !== expected) return unauthorized();
 
   try {
-    const result = await syncFromFootballData();
-    return NextResponse.json({ ok: true, ...result });
+    const fd = await syncFromFootballData();
+    // Venues live on a separate API (ESPN). Failures shouldn't fail the
+    // whole cron — FD fixtures are the load-bearing data.
+    let venues: Awaited<ReturnType<typeof syncVenuesFromEspn>> | null = null;
+    let venuesError: string | null = null;
+    try {
+      venues = await syncVenuesFromEspn();
+    } catch (err) {
+      venuesError = err instanceof Error ? err.message : "unknown error";
+    }
+    return NextResponse.json({ ok: true, ...fd, venues, venuesError });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });

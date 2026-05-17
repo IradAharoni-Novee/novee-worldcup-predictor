@@ -69,6 +69,9 @@ export default async function MatchesPage({
               stage={m.stage}
               group={m.group}
               kickoff={m.kickoff}
+              venue={m.venue}
+              city={m.city}
+              country={m.country}
               homeTeam={m.homeTeam}
               awayTeam={m.awayTeam}
               homeScore={m.homeScore}

@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { syncFromFootballData, syncSquadsFromFootballData } from "@/lib/sync";
+import {
+  syncFromFootballData,
+  syncSquadsFromFootballData,
+  syncVenuesFromEspn,
+} from "@/lib/sync";
 import { MatchStatus } from "@prisma/client";
 
 async function requireAdmin() {
@@ -85,6 +89,13 @@ export async function triggerSync(): Promise<AdminResult> {
   }
   try {
     const result = await syncFromFootballData();
+    // ESPN venue sync is optional — failures shouldn't bubble up as if the
+    // whole sync failed.
+    try {
+      await syncVenuesFromEspn();
+    } catch {
+      // swallow; surfaced separately if needed
+    }
     revalidatePath("/matches");
     revalidatePath("/bracket");
     revalidatePath("/admin/matches");

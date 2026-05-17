@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MapPin } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -52,6 +52,7 @@ export default async function MatchDetailPage({
 
   const prediction = match.predictions[0] ?? null;
   const locked = isLocked(match.kickoff) || match.status !== "SCHEDULED";
+  const locationParts = [match.city, match.country].filter(Boolean);
   const points =
     match.status === "FINISHED"
       ? scorePrediction(prediction, {
@@ -148,6 +149,21 @@ export default async function MatchDetailPage({
             </div>
             <TeamBlock team={match.awayTeam} />
           </div>
+
+          {match.venue && (
+            <div className="flex items-start justify-center gap-1.5 text-center body body-size-small text-[color:var(--color-text-secondary)] mb-4">
+              <MapPin className="size-3.5 mt-0.5 shrink-0 text-[color:var(--color-text-tertiary)]" />
+              <span>
+                <span className="body-weight-medium">{match.venue}</span>
+                {locationParts.length > 0 && (
+                  <span className="text-[color:var(--color-text-tertiary)]">
+                    {" · "}
+                    {locationParts.join(", ")}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
 
           {points != null && (
             <p className="text-center body body-size-medium mb-4">
