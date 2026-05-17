@@ -3,7 +3,7 @@ import { scorePrediction } from "@/lib/scoring";
 import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import { computeGroupStandings } from "@/lib/group-standings";
 import { getScoringConfig } from "@/lib/leaderboard";
-import { NOVEE_VOICE_TUNING } from "@/lib/veevee-voice";
+import { noveeTuning } from "@/lib/veevee-voice";
 
 export type Achievement = {
   id: string;
@@ -164,11 +164,12 @@ export async function computeAchievementsForUser(
     },
   ];
 
-  if (NOVEE_VOICE_TUNING.personName) {
+  const personName = noveeTuning("personName", userId);
+  if (personName) {
     achievements.push({
       id: "personAward",
-      label: `The ${NOVEE_VOICE_TUNING.personName} Award`,
-      description: `Earned by anyone bold enough to lock in a tournament winner pick. ${NOVEE_VOICE_TUNING.personName} would (mostly) approve.`,
+      label: `The ${personName} Award`,
+      description: `Earned by anyone bold enough to lock in a tournament winner pick. ${personName} would (mostly) approve.`,
       earned: (await prisma.tournamentWinnerPrediction.findUnique({
         where: { userId },
         select: { id: true },
