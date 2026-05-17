@@ -125,6 +125,24 @@ export async function computeAchievementsForUser(
 
   const contrarian = await detectContrarian(predictions);
 
+  const lidorInThailand = predictions.some(
+    (p) => p.match.kickoff.getTime() - p.submittedAt.getTime() <= 5 * 60_000
+  );
+  const chickenStationClosed =
+    predictions.filter((p) => p.homeScore === 0 && p.awayScore === 0).length >= 3;
+  const bedrockBill = predictions.some(
+    (p) => p.homeScore + p.awayScore >= 8
+  );
+  const gonBotApproves = predictions.some(
+    (p) => typeof p.note === "string" && p.note.trim().length > 0
+  );
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60_000;
+  const lfg = predictions.some(
+    (p) => p.match.kickoff.getTime() - p.submittedAt.getTime() >= SEVEN_DAYS_MS
+  );
+  const coolHatul =
+    predictions.filter((p) => p.homeScore === p.awayScore).length >= 3;
+
   const achievements: Achievement[] = [
     {
       id: "lucky7",
@@ -161,6 +179,43 @@ export async function computeAchievementsForUser(
       label: "Streak 10",
       description: "Ten consecutive correct outcomes.",
       earned: streak10,
+    },
+    {
+      id: "lidorInThailand",
+      label: "Lidor in Thailand",
+      description:
+        "Locked a prediction within 5 minutes of kickoff. That's how the money runs out.",
+      earned: lidorInThailand,
+    },
+    {
+      id: "chickenStationClosed",
+      label: "Chicken Station Closed",
+      description: "Predicted 0–0 on three matches. Equally unsatisfying.",
+      earned: chickenStationClosed,
+    },
+    {
+      id: "bedrockBill",
+      label: "Bedrock Bill",
+      description: "Predicted a match with eight or more goals. Out of control.",
+      earned: bedrockBill,
+    },
+    {
+      id: "gonBotApproves",
+      label: "GonBot Approves",
+      description: "Wrote a hot take. LGTM.",
+      earned: gonBotApproves,
+    },
+    {
+      id: "lfg",
+      label: "LFG",
+      description: "Locked a pick a week before kickoff. No hesitation. Let's go.",
+      earned: lfg,
+    },
+    {
+      id: "coolHatul",
+      label: "Cool Hatul",
+      description: "Predicted a draw on three matches. Doesn't pick sides.",
+      earned: coolHatul,
     },
   ];
 
