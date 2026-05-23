@@ -12,10 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { AnthropicMark, OpenAIMark } from "@/components/ui/brand-marks";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { veeveeLine } from "@/lib/veevee-voice";
-import { aiPlayerKind } from "@/lib/ai-players";
 import { Odometer } from "@/components/ui/odometer";
 
 export default async function LeaderboardPage() {
@@ -150,9 +148,5 @@ function LeaderboardAvatar({
   name: string | null;
   image: string | null;
 }) {
-  const kind = aiPlayerKind(email);
-  if (kind === "opus") return <AnthropicMark size={32} />;
-  if (kind === "gpt") return <OpenAIMark size={32} />;
-  // The 0-0 bot and humans both fall through to the default avatar.
   return <UserAvatar email={email} name={name} image={image} size={32} />;
 }
