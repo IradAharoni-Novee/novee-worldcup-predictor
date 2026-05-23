@@ -1,5 +1,13 @@
-import { AnthropicMark, OpenAIMark } from "@/components/ui/brand-marks";
 import { cn } from "@/lib/cn";
+
+// AI player avatars are static SVG files in /public/avatars. Keyed by email
+// prefix so each seeded bot gets its own brand mark.
+const BOT_AVATAR: ReadonlyArray<{ test: (local: string) => boolean; src: string; label: string }> = [
+  { test: (l) => l.startsWith("opus-") || l.startsWith("claude"), src: "/avatars/anthropic.svg", label: "Anthropic" },
+  { test: (l) => l.startsWith("gpt-") || l.startsWith("chatgpt"), src: "/avatars/openai.svg", label: "OpenAI" },
+  { test: (l) => l.startsWith("gemini-"), src: "/avatars/gemini.svg", label: "Google Gemini" },
+  { test: (l) => l.startsWith("veevees-cousin"), src: "/avatars/cousin.svg", label: "VeeVee's Cousin" },
+];
 
 // Subtle deterministic color picker for human initials avatars
 const PALETTE = [
@@ -41,11 +49,18 @@ export function UserAvatar({
 }) {
   const local = email.toLowerCase();
   // AI bots always render their brand mark, regardless of any DB image.
-  if (local.startsWith("opus-") || local.startsWith("claude")) {
-    return <AnthropicMark size={size} />;
-  }
-  if (local.startsWith("gpt-") || local.startsWith("chatgpt")) {
-    return <OpenAIMark size={size} />;
+  const bot = BOT_AVATAR.find((b) => b.test(local));
+  if (bot) {
+    return (
+      <img
+        src={bot.src}
+        alt={bot.label}
+        width={size}
+        height={size}
+        className={cn("rounded-full", className)}
+        style={{ width: size, height: size }}
+      />
+    );
   }
   // Real photo (typically from Slack) trumps initials.
   if (image) {
@@ -55,7 +70,7 @@ export function UserAvatar({
         alt={name ?? email}
         width={size}
         height={size}
-        className={cn("rounded-md object-cover", className)}
+        className={cn("rounded-full object-cover", className)}
         style={{ width: size, height: size }}
         loading="lazy"
       />
@@ -65,7 +80,7 @@ export function UserAvatar({
   return (
     <div
       className={cn(
-        "rounded-md grid place-items-center font-medium tabular-nums",
+        "rounded-full grid place-items-center font-medium tabular-nums",
         className
       )}
       style={{

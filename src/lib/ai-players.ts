@@ -7,6 +7,7 @@
 export const AI_PLAYER_EMAILS = {
   opus: "opus-4.7@novee.security",
   gpt: "gpt-5.5@novee.security",
+  gemini: "gemini-3.5-flash@novee.security",
   cousin: "veevees-cousin@novee.security",
 } as const;
 
@@ -14,7 +15,7 @@ export const AI_PLAYER_EMAIL_SET: ReadonlySet<string> = new Set(
   Object.values(AI_PLAYER_EMAILS)
 );
 
-export type AiPlayerKind = "opus" | "gpt" | "cousin" | null;
+export type AiPlayerKind = "opus" | "gpt" | "gemini" | "cousin" | null;
 
 export function aiPlayerKind(email: string | null | undefined): AiPlayerKind {
   if (!email) return null;
@@ -28,3 +29,12 @@ export function aiPlayerKind(email: string | null | undefined): AiPlayerKind {
 export function isAiPlayer(email: string | null | undefined): boolean {
   return aiPlayerKind(email) !== null;
 }
+
+// Vercel AI Gateway model IDs for the LLM-backed players. The cousin is
+// rule-based (always 0-0) so it has no model. Used by `prisma/seed.ts` to
+// generate real predictions for each player.
+export const AI_PLAYER_MODEL_IDS = {
+  opus: "anthropic/claude-opus-4-7",
+  gpt: "openai/gpt-5.5",
+  gemini: "google/gemini-3.5-flash",
+} as const satisfies Record<Exclude<AiPlayerKind & string, "cousin">, string>;
