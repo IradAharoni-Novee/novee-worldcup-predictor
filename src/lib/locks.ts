@@ -11,23 +11,26 @@ export async function isGroupLocked(group: string, now: Date = new Date()): Prom
   return isLocked(earliest.kickoff, now);
 }
 
-export async function isBracketLocked(now: Date = new Date()): Promise<boolean> {
+export async function getBracketLockTime(): Promise<Date | null> {
   const earliest = await prisma.match.findFirst({
     where: { stage: "R32" },
     orderBy: { kickoff: "asc" },
     select: { kickoff: true },
   });
-  if (!earliest) {
-    // Fall back to R16 if R32 isn't seeded yet (e.g. 16-team format)
-    const fallback = await prisma.match.findFirst({
-      where: { stage: "R16" },
-      orderBy: { kickoff: "asc" },
-      select: { kickoff: true },
-    });
-    if (!fallback) return false;
-    return isLocked(fallback.kickoff, now);
-  }
-  return isLocked(earliest.kickoff, now);
+  if (earliest) return earliest.kickoff;
+  // Fall back to R16 if R32 isn't seeded yet (e.g. 16-team format)
+  const fallback = await prisma.match.findFirst({
+    where: { stage: "R16" },
+    orderBy: { kickoff: "asc" },
+    select: { kickoff: true },
+  });
+  return fallback?.kickoff ?? null;
+}
+
+export async function isBracketLocked(now: Date = new Date()): Promise<boolean> {
+  const lock = await getBracketLockTime();
+  if (!lock) return false;
+  return isLocked(lock, now);
 }
 
 export async function isTournamentLocked(now: Date = new Date()): Promise<boolean> {

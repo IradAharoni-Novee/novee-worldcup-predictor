@@ -9,12 +9,12 @@ import {
   GoldenBootPickerForm,
   WinnerPickerForm,
 } from "@/components/predictor/awards-form";
+import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import {
   getTournamentLockTime,
   isTournamentLocked,
 } from "@/lib/locks";
-import { formatKickoff } from "@/lib/format";
 import { getScoringConfig } from "@/lib/leaderboard";
 import {
   SETTING_KEY_ACTUAL_GOLDEN_BOOT,
@@ -117,7 +117,7 @@ export default async function AwardsPage() {
               {locked
                 ? "Tournament has started — picks are locked"
                 : lockTime
-                  ? `Picks lock at first kickoff: ${formatKickoff(lockTime)}`
+                  ? "Picks lock at the tournament's first kickoff"
                   : "No fixtures scheduled yet"}
             </p>
             <p className="heading text-lg">
@@ -158,6 +158,11 @@ export default async function AwardsPage() {
             initial={winnerPick ? { teamId: winnerPick.teamId } : null}
             locked={locked}
           />
+          {!locked && lockTime && (
+            <div className="border-t border-[color:var(--color-border-secondary)] pt-2">
+              <SubmissionDeadline deadline={lockTime} />
+            </div>
+          )}
           {actualWinnerTeam && (
             <div className="rounded-md border border-[color:var(--color-border-secondary)] px-3 py-2 flex items-center gap-2">
               {actualWinnerTeam.flag && (
@@ -212,6 +217,11 @@ export default async function AwardsPage() {
               initial={goldenBootPick ? { playerId: goldenBootPick.playerId } : null}
               locked={locked}
             />
+          )}
+          {!locked && lockTime && (
+            <div className="border-t border-[color:var(--color-border-secondary)] pt-2">
+              <SubmissionDeadline deadline={lockTime} />
+            </div>
           )}
           {actualGoldenBootPlayer && (
             <div className="rounded-md border border-[color:var(--color-border-secondary)] px-3 py-2 flex items-center gap-3">

@@ -4,8 +4,12 @@ import { ArrowUpRight, Lock, MapPin, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
-import { formatKickoff, isLocked, stageLabel } from "@/lib/format";
+import { isLocked, stageLabel } from "@/lib/format";
 import { InlineScoreEditor } from "@/components/match/inline-score-editor";
+import {
+  LocalKickoff,
+  SubmissionDeadline,
+} from "@/components/predictor/submission-deadline";
 
 type TeamLite = { name: string; code: string; flag: string | null } | null;
 
@@ -119,7 +123,7 @@ export function MatchCard({
           className="inline-flex items-center gap-1 body body-size-small text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
           aria-label="Match details"
         >
-          {formatKickoff(kickoff)}
+          <LocalKickoff date={kickoff} />
           <ArrowUpRight className="size-3.5" />
         </Link>
       </div>
@@ -165,7 +169,10 @@ export function MatchCard({
             <Lock className="size-3.5 text-[color:var(--color-text-tertiary)]" />
           </div>
         ) : (
-          <InlineScoreEditor matchId={id} initial={prediction ?? null} />
+          <div className="flex flex-col gap-1.5">
+            <InlineScoreEditor matchId={id} initial={prediction ?? null} />
+            <SubmissionDeadline deadline={kickoff} />
+          </div>
         )}
       </div>
     </Card>
