@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import { getLeaderboard } from "@/lib/leaderboard";
 
@@ -15,8 +17,13 @@ function displayName(name: string | null, email: string): string {
   return label.length > 22 ? `${label.slice(0, 21)}…` : label;
 }
 
-export async function GET(req: Request) {
-  const origin = new URL(req.url).origin;
+export async function GET() {
+  // Read from disk rather than fetching over HTTP — a self-request 401s on
+  // protected preview deployments.
+  const bg = await readFile(
+    path.join(process.cwd(), "public", "reminder-card-bg.jpg")
+  );
+  const bgSrc = `data:image/jpeg;base64,${bg.toString("base64")}`;
   const top3 = (await getLeaderboard()).slice(0, 3);
 
   return new ImageResponse(
@@ -30,7 +37,7 @@ export async function GET(req: Request) {
         }}
       >
         <img
-          src={`${origin}/reminder-card-bg.jpg`}
+          src={bgSrc}
           alt=""
           width={WIDTH}
           height={HEIGHT}

@@ -18,6 +18,11 @@ function buildJwtCookieValue(flagCode: string): string {
 }
 
 const nextConfig: NextConfig = {
+  // The reminder-card OG image reads its background from disk at runtime;
+  // without this the file isn't bundled into the serverless function.
+  outputFileTracingIncludes: {
+    "/api/reminder-card": ["./public/reminder-card-bg.jpg"],
+  },
   images: {
     remotePatterns: [
       {
