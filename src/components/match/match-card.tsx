@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
 import { isLocked, stageLabel } from "@/lib/format";
 import { InlineScoreEditor } from "@/components/match/inline-score-editor";
+import { LiveBadge } from "@/components/match/live-badge";
 import { TeamRow, type TeamLite } from "@/components/match/team-row";
 import { LocalKickoff } from "@/components/predictor/submission-deadline";
 
@@ -88,6 +89,12 @@ export function MatchCard({
   points,
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
+  const loser =
+    status === "FINISHED" && homeScore != null && awayScore != null && homeScore !== awayScore
+      ? homeScore > awayScore
+        ? "away"
+        : "home"
+      : null;
   return (
     <Card className="gap-3 py-4 hover:border-[color:var(--color-border-hover)] transition-colors">
       <div className="flex items-center justify-between px-4">
@@ -97,7 +104,7 @@ export function MatchCard({
             color={stageChipColor(stage)}
             label={stageLabel(stage, group)}
           />
-          {status === "LIVE" && <Chip size="small" color="red" label="LIVE" />}
+          {status === "LIVE" && <LiveBadge />}
           {status === "FINISHED" && points != null && (
             <Chip
               size="small"
@@ -124,8 +131,16 @@ export function MatchCard({
       {locked ? (
         <>
           <div className="px-4 flex flex-col gap-1.5">
-            <TeamRow team={homeTeam} right={<ScoreReadout score={homeScore} />} />
-            <TeamRow team={awayTeam} right={<ScoreReadout score={awayScore} />} />
+            <TeamRow
+              team={homeTeam}
+              right={<ScoreReadout score={homeScore} />}
+              dim={loser === "home"}
+            />
+            <TeamRow
+              team={awayTeam}
+              right={<ScoreReadout score={awayScore} />}
+              dim={loser === "away"}
+            />
           </div>
           <div className="px-4 pt-2 border-t border-[color:var(--color-border-secondary)]">
             <div className="flex items-center justify-between">
