@@ -82,7 +82,11 @@ export function TopBar({
         </div>
         {userEmail && (
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 min-w-0">
+            <Link
+              href="/me"
+              title="Your profile"
+              className="hidden sm:flex items-center gap-2 min-w-0 rounded-md px-1.5 py-1 hover:bg-[var(--tabs-nav-item-bg-hover)] transition-colors"
+            >
               <UserAvatar
                 email={userEmail}
                 name={userName}
@@ -97,7 +101,7 @@ export function TopBar({
                   {userEmail}
                 </span>
               </div>
-            </div>
+            </Link>
             <form action={signOutAction} className="hidden sm:block">
               <button
                 type="submit"

@@ -26,6 +26,7 @@ import { computeAchievementsForUser } from "@/lib/achievements";
 import { AchievementsRow } from "@/components/me/achievements-row";
 import { NemesisCard } from "@/components/me/nemesis-card";
 import { CelebrationTrigger } from "@/components/me/celebration-trigger";
+import { ProfileEditor } from "@/components/me/profile-editor";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { isAiPlayer } from "@/lib/ai-players";
 
@@ -172,7 +173,7 @@ export default async function MePage() {
     getLeaderboard(),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { nemesisId: true },
+      select: { nemesisId: true, email: true, name: true, image: true },
     }),
   ]);
 
@@ -197,6 +198,16 @@ export default async function MePage() {
         hasFirstExact={hasFirstExact}
         inTop3={inTop3}
       />
+      {me && (
+        <Section title="Profile">
+          <ProfileEditor
+            email={me.email}
+            name={me.name}
+            image={me.image}
+            uploadsEnabled={Boolean(process.env.BLOB_READ_WRITE_TOKEN)}
+          />
+        </Section>
+      )}
       <Card className="px-4 sm:px-6">
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
           <Stat label="Total points" value={total} />

@@ -82,8 +82,8 @@ export function UserAvatar({
       {initials(name, email)}
     </div>
   );
-  // Real photo (typically from Slack) trumps initials, but a broken URL falls
-  // back to initials instead of the browser's broken-image icon.
+  // Real photo (uploaded avatar, Slack, or OAuth provider) trumps initials, but
+  // a broken URL falls back to initials instead of the browser's broken-image icon.
   if (image) {
     return (
       <AvatarImage
