@@ -6,12 +6,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
+import { LiveBadge } from "@/components/match/live-badge";
 import { PredictionForm } from "@/components/match/prediction-form";
 import {
   LocalKickoff,
   SubmissionDeadline,
 } from "@/components/predictor/submission-deadline";
 import { PageContainer } from "@/components/shell/page-container";
+import { cn } from "@/lib/cn";
 import { isLocked, stageLabel } from "@/lib/format";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
@@ -56,6 +58,16 @@ export default async function MatchDetailPage({
 
   const prediction = match.predictions[0] ?? null;
   const locked = isLocked(match.kickoff) || match.status !== "SCHEDULED";
+  const hasScore = match.homeScore != null && match.awayScore != null;
+  // Show the scoreline for finished matches and for live matches once a score
+  // has synced; a live match with no score yet still falls back to "vs".
+  const showScore = hasScore && match.status !== "SCHEDULED";
+  const loser =
+    match.status === "FINISHED" && hasScore && match.homeScore !== match.awayScore
+      ? match.homeScore! > match.awayScore!
+        ? "away"
+        : "home"
+      : null;
   const locationParts = [match.city, match.country].filter(Boolean);
   const points =
     match.status === "FINISHED"
@@ -135,15 +147,30 @@ export default async function MatchDetailPage({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 items-center gap-4 py-4">
-            <TeamBlock team={match.homeTeam} />
-            <div className="text-center">
-              {match.status === "FINISHED" ? (
+            <TeamBlock team={match.homeTeam} dim={loser === "home"} />
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              {match.status === "LIVE" && <LiveBadge />}
+              {showScore ? (
                 <div className="code code-size-large text-4xl tabular-nums">
-                  {match.homeScore}
+                  <span
+                    className={cn(
+                      loser === "home" &&
+                        "text-[color:var(--color-text-tertiary)]"
+                    )}
+                  >
+                    {match.homeScore}
+                  </span>
                   <span className="mx-2 text-[color:var(--color-text-tertiary)]">
                     –
                   </span>
-                  {match.awayScore}
+                  <span
+                    className={cn(
+                      loser === "away" &&
+                        "text-[color:var(--color-text-tertiary)]"
+                    )}
+                  >
+                    {match.awayScore}
+                  </span>
                 </div>
               ) : (
                 <div className="heading text-2xl text-[color:var(--color-text-tertiary)]">
@@ -151,7 +178,7 @@ export default async function MatchDetailPage({
                 </div>
               )}
             </div>
-            <TeamBlock team={match.awayTeam} />
+            <TeamBlock team={match.awayTeam} dim={loser === "away"} />
           </div>
 
           {match.venue && (
@@ -255,11 +282,18 @@ export default async function MatchDetailPage({
 
 function TeamBlock({
   team,
+  dim = false,
 }: {
   team: { name: string; code: string; flag: string | null } | null;
+  dim?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div
+      className={cn(
+        "flex flex-col items-center gap-2 transition-opacity",
+        dim && "opacity-45"
+      )}
+    >
       {team?.flag ? (
         <span className="size-12 relative shrink-0">
           <Image
