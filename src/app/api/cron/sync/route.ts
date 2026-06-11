@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncSquadPhotosFromFifa } from "@/lib/fifa-squad";
 import { syncFromFootballData, syncVenuesFromEspn } from "@/lib/sync";
 
 export const runtime = "nodejs";
@@ -31,7 +32,24 @@ async function handle(req: Request) {
     } catch (err) {
       venuesError = err instanceof Error ? err.message : "unknown error";
     }
-    return NextResponse.json({ ok: true, ...fd, venues, venuesError });
+    // Squad photos come from FIFA's API and publish team-by-team over time.
+    // Like venues, a failure here shouldn't fail the whole cron.
+    let squadPhotos: Awaited<ReturnType<typeof syncSquadPhotosFromFifa>> | null =
+      null;
+    let squadPhotosError: string | null = null;
+    try {
+      squadPhotos = await syncSquadPhotosFromFifa();
+    } catch (err) {
+      squadPhotosError = err instanceof Error ? err.message : "unknown error";
+    }
+    return NextResponse.json({
+      ok: true,
+      ...fd,
+      venues,
+      venuesError,
+      squadPhotos,
+      squadPhotosError,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });
