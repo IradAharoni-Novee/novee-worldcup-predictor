@@ -90,6 +90,7 @@ export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset palette state on close
       setQuery("");
       setActiveIndex(0);
       return;
@@ -99,6 +100,7 @@ export function CommandPalette({ isAdmin = false }: { isAdmin?: boolean }) {
   }, [open]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset highlight when query changes
     setActiveIndex(0);
   }, [query]);
 

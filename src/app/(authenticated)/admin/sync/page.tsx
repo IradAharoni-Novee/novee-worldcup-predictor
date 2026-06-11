@@ -10,7 +10,7 @@ export default function AdminSyncPage() {
           <CardTitle>Sync from football-data.org, ESPN &amp; FIFA</CardTitle>
           <CardDescription>
             Fixtures &amp; results pull from football-data.org (daily cron at 06:00 UTC).
-            Match venues (stadium, city, country) pull from ESPN's public scoreboard
+            Match venues (stadium, city, country) pull from ESPN&apos;s public scoreboard
             in the same job. Squads pull biographical data from football-data.org.
             Player photos are scraped
             from FIFA&apos;s tournament squad pages — that one runs from the CLI because

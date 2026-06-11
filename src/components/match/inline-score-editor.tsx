@@ -48,6 +48,7 @@ export function InlineScoreEditor({
     const key = `${home}-${away}`;
     const match = HISTORIC_SCORES[key];
     if (!match) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show glyph, faded out by the timeout below
     setHistoricGlyph(match);
     const fade = setTimeout(() => setHistoricGlyph(null), 4000);
     return () => clearTimeout(fade);

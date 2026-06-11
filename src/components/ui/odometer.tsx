@@ -31,6 +31,7 @@ export function Odometer({
     const stored = window.sessionStorage.getItem(storageKey);
     const startFrom = stored !== null ? Number(stored) : value;
     if (reducedMotion() || startFrom === value) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: animation effect jumps to final value
       setDisplay(value);
       window.sessionStorage.setItem(storageKey, String(value));
       return;

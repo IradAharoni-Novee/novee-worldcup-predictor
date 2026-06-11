@@ -77,7 +77,7 @@ export default async function CosmosPage() {
         </p>
         <p className="body body-size-medium">
           You found the hidden room. VeeVee has been doing the math in here.
-          Every prediction you've made, scored against an alternate timeline
+          Every prediction you&apos;ve made, scored against an alternate timeline
           where you flipped home and away on every match.
         </p>
         <div className="grid gap-4 md:grid-cols-2">

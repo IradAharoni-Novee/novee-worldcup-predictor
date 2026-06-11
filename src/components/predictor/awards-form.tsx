@@ -81,8 +81,13 @@ export function WinnerPickerForm({
         setStatus({ error: result.error });
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return teams;
+    return teams.filter((t) => t.name.toLowerCase().includes(q));
+  }, [teams, query]);
 
   if (locked) {
     const team = teams.find((t) => t.id === initial?.teamId);
@@ -106,12 +111,6 @@ export function WinnerPickerForm({
       </div>
     );
   }
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return teams;
-    return teams.filter((t) => t.name.toLowerCase().includes(q));
-  }, [teams, query]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -199,7 +198,6 @@ export function GoldenBootPickerForm({
         setStatus({ error: result.error });
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
   const selected = useMemo(
