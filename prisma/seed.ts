@@ -11,8 +11,8 @@
 // drift across runs. Set AI_GATEWAY_API_KEY before invoking (`vercel env pull`
 // pulls it into .env.local). Without it, the seed fails fast.
 //
-// Player photos (heavyweight, headless-browser-driven) live in a separate
-// script: `pnpm tsx prisma/sync-squad-photos.ts`.
+// Player photos are pulled from FIFA's squad API by a separate script:
+// `pnpm tsx prisma/sync-squad-photos.ts`.
 
 import { Stage, type Prisma } from "@prisma/client";
 import { generateObject } from "ai";

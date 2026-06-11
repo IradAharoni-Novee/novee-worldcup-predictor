@@ -1,12 +1,10 @@
 // Pure helpers for the FIFA squad-photo sync (prisma/sync-squad-photos.ts).
-// Kept free of Prisma/Playwright so the matching logic is unit-testable.
+// Kept free of Prisma so the matching logic is unit-testable.
 //
-// FIFA serves player headshots from digitalhub.fifa.com via this pattern:
-//   https://digitalhub.fifa.com/transform/<GUID>/<filename>?...&width:<N>&quality=75
-// and labels each player's <img> with alt="Firstname LASTNAME". Our DB roster
-// comes from football-data.org, which often uses fuller legal names in a
-// different order, so matching has to tolerate diacritics, reordering, and
-// extra middle/family names without producing false matches.
+// FIFA's squad API gives each player a display name like "Firstname LASTNAME".
+// Our DB roster comes from football-data.org, which often uses fuller legal
+// names in a different order, so matching has to tolerate diacritics,
+// reordering, and extra middle/family names without producing false matches.
 
 export type NameCandidate = { id: string; name: string };
 
@@ -22,22 +20,6 @@ export function normalizeName(name: string): string {
 export function nameTokens(name: string): string[] {
   const normalized = normalizeName(name);
   return normalized ? normalized.split(" ") : [];
-}
-
-export function pickWidth(srcset: string, preferredWidth: number): string | null {
-  // srcset entries are "<url> <width>w" separated by commas, but the URLs
-  // themselves contain commas (e.g. "transform:fill,aspectratio:1x1,...").
-  // Match url+width pairs directly instead of splitting on commas.
-  const matches = [...srcset.matchAll(/(https?:\/\/\S+?)\s+(\d+)w(?=\s*,|\s*$)/g)];
-  let best: { url: string; width: number } | null = null;
-  for (const m of matches) {
-    const url = m[1]!;
-    const width = parseInt(m[2]!, 10);
-    if (!best || Math.abs(width - preferredWidth) < Math.abs(best.width - preferredWidth)) {
-      best = { url, width };
-    }
-  }
-  return best?.url ?? null;
 }
 
 function tokenSetEqual(a: string[], b: string[]): boolean {

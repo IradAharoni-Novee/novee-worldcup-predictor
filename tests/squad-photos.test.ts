@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  matchPlayer,
-  nameTokens,
-  normalizeName,
-  pickWidth,
-} from "@/lib/squad-photos";
+import { matchPlayer, nameTokens, normalizeName } from "@/lib/squad-photos";
 
 const roster = (...names: string[]) =>
   names.map((name, i) => ({ id: `p${i}`, name }));
@@ -21,22 +16,6 @@ describe("nameTokens", () => {
   it("returns an empty array for blank input", () => {
     expect(nameTokens("   ")).toEqual([]);
     expect(nameTokens("!!!")).toEqual([]);
-  });
-});
-
-describe("pickWidth", () => {
-  it("picks the variant closest to the preferred width despite commas in urls", () => {
-    const srcset = [
-      "https://digitalhub.fifa.com/transform/a,aspectratio:1x1/x?width:160 160w",
-      "https://digitalhub.fifa.com/transform/a,aspectratio:1x1/x?width:320 320w",
-      "https://digitalhub.fifa.com/transform/a,aspectratio:1x1/x?width:640 640w",
-    ].join(", ");
-    expect(pickWidth(srcset, 320)).toContain("width:320");
-    expect(pickWidth(srcset, 1000)).toContain("width:640");
-  });
-
-  it("returns null when no width descriptors are present", () => {
-    expect(pickWidth("https://example.com/x.jpg", 320)).toBeNull();
   });
 });
 

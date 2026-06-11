@@ -1,205 +1,156 @@
 /* eslint-disable no-console */
-// Scrape FIFA's tournament squad pages for player photos and write them back
-// to Player.photo. Run with:
-//   pnpm tsx prisma/sync-squad-photos.ts                  # default: canadamexicousa2026
-//   pnpm tsx prisma/sync-squad-photos.ts qatar2022        # back-test against past tournament
+// Pull WC2026 squads from FIFA's JSON API and write player headshots to
+// Player.photo. Run with:
+//   pnpm tsx prisma/sync-squad-photos.ts
 //
-// FIFA serves player headshots from digitalhub.fifa.com via this pattern:
-//   https://digitalhub.fifa.com/transform/<GUID>/<filename>?...&width:<N>&quality=75
-// The squad pages list each player with an img.alt of "Firstname LASTNAME" and
-// an img.srcset containing five widths. We pick the 320w variant.
+// FIFA's site (fifa.com) is backed by the public api.fifa.com v3 API — no auth.
+// We read the 48-team list from the competition calendar, then each team's
+// squad. Headshots come from digitalhub.fifa.com; we request a 320px square.
 //
-// Players we can't match to a FIFA headshot (in the DB roster but not in FIFA's
-// published squad, or vice versa) keep photo=null and render the on-brand
-// initials chip from <PlayerAvatar>, so every player still shows an image.
-// Name normalization + matching live in @/lib/squad-photos (unit-tested).
+// FIFA publishes squad photos team-by-team in the run-up to the tournament, so
+// some squads return players with no photo yet (PictureUrl null). Those players
+// keep photo=null and render the on-brand initials chip from <PlayerAvatar>, so
+// every player still shows an image — re-run later to pick up squads as their
+// photos go live. Name matching lives in @/lib/squad-photos (unit-tested).
 
-import { chromium, type Page } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
-import { matchPlayer, normalizeName, pickWidth } from "@/lib/squad-photos";
+import { matchPlayer, normalizeName } from "@/lib/squad-photos";
 
-const TOURNAMENT = process.argv[2] || "canadamexicousa2026";
-const BASE = `https://www.fifa.com/en/tournaments/mens/worldcup/${TOURNAMENT}`;
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
+const ID_COMPETITION = "17"; // FIFA World Cup
+const ID_SEASON = "285023"; // 2026 — Canada / Mexico / USA
+const API = "https://api.fifa.com/api/v3";
+const HEADERS = { "User-Agent": "Mozilla/5.0", Accept: "application/json" };
+
+type Localized = { Locale: string; Description: string }[];
+
+function enText(items: Localized | null | undefined): string {
+  if (!items || items.length === 0) return "";
+  const en = items.find((i) => i.Locale.startsWith("en")) ?? items[0]!;
+  return en.Description ?? "";
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`${url} → ${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as T;
+}
+
+type FifaTeam = { id: string; name: string; country: string };
+
+type CalendarResponse = {
+  Results: { Home: TeamSide | null; Away: TeamSide | null }[];
+};
+type TeamSide = {
+  IdTeam: string | null;
+  IdCountry: string | null;
+  TeamType: number | null;
+  TeamName: Localized;
+};
+
+async function fetchTeams(): Promise<FifaTeam[]> {
+  const data = await getJson<CalendarResponse>(
+    `${API}/calendar/matches?idCompetition=${ID_COMPETITION}&idSeason=${ID_SEASON}&count=500&language=en`
+  );
+  const byId = new Map<string, FifaTeam>();
+  for (const match of data.Results) {
+    for (const side of [match.Home, match.Away]) {
+      // TeamType 1 = a real nation; knockout placeholders have null/other.
+      if (side?.IdTeam && side.IdCountry && side.TeamType === 1) {
+        byId.set(side.IdTeam, {
+          id: side.IdTeam,
+          name: enText(side.TeamName),
+          country: side.IdCountry,
+        });
+      }
+    }
+  }
+  return [...byId.values()];
+}
 
 type FifaPlayer = { name: string; photoUrl: string };
 
-async function dismissCookieBanner(page: Page) {
-  try {
-    await page
-      .getByRole("button", { name: /I'm OK with that|Accept All|Reject All/ })
-      .first()
-      .click({ timeout: 3000 });
-  } catch {
-    // banner not present, fine
-  }
+type SquadResponse = {
+  Players: {
+    PlayerName: Localized;
+    PictureUrl: string | null;
+    PlayerPicture: { PictureUrl: string | null } | null;
+  }[];
+};
+
+function headshotUrl(base: string): string {
+  return `${base}?io=transform:fill,aspectratio:1x1,width:320&quality=75`;
 }
 
-async function fetchTeamSlugs(page: Page): Promise<{ name: string; slug: string }[]> {
-  await page.goto(`${BASE}/teams`, { waitUntil: "domcontentloaded", timeout: 45000 });
-  await dismissCookieBanner(page);
-  await page
-    .waitForSelector(`a[href*="/teams/"]`, { timeout: 20000 })
-    .catch(() => {});
-  await page.waitForTimeout(1500);
-  const links = await page.$$eval(`a[href*="/teams/"]`, (els) =>
-    els
-      .map((el) => {
-        const a = el as HTMLAnchorElement;
-        const href = a.getAttribute("href") ?? "";
-        const m = href.match(/\/teams\/([a-z0-9-]+)(?:\/|$)/);
-        if (!m) return null;
-        const heading =
-          a.querySelector("h3")?.textContent?.trim() ??
-          a.textContent?.trim()?.split("\n")[0]?.trim() ??
-          "";
-        return { slug: m[1] ?? "", heading };
-      })
-      .filter((x) => x !== null && x.slug !== "")
+async function fetchSquad(teamId: string): Promise<FifaPlayer[]> {
+  const data = await getJson<SquadResponse>(
+    `${API}/teams/${teamId}/squad?idCompetition=${ID_COMPETITION}&idSeason=${ID_SEASON}&language=en`
   );
-  const map = new Map<string, { name: string; slug: string }>();
-  for (const t of links) {
-    if (!t) continue;
-    const display = t.heading || t.slug.replace(/-/g, " ");
-    if (!map.has(t.slug)) map.set(t.slug, { name: display, slug: t.slug });
-  }
-  return [...map.values()];
-}
-
-async function readSquadImgs(page: Page): Promise<FifaPlayer[]> {
-  // Scroll the player grid into view so lazy images bind their srcset.
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
-  await page.waitForTimeout(800);
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(500);
-
-  const players = await page.$$eval("img", (imgs) =>
-    imgs
-      .filter(
-        (i) =>
-          i.alt &&
-          i.alt.match(/[A-Z]{2,}/) &&
-          // Player headshots are in player-badge-card_playerImage; exclude
-          // banner/logo images.
-          i.srcset &&
-          i.srcset.includes("digitalhub.fifa.com") &&
-          i.srcset.includes("aspectratio:1x1")
-      )
-      .map((i) => ({ alt: i.alt, srcset: i.srcset }))
-  );
-
   const out: FifaPlayer[] = [];
-  const seen = new Set<string>();
-  for (const p of players) {
-    const url = pickWidth(p.srcset, 320);
-    if (!url) continue;
-    const key = `${p.alt}|${url}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ name: p.alt, photoUrl: url });
+  for (const p of data.Players ?? []) {
+    const base = p.PlayerPicture?.PictureUrl ?? p.PictureUrl;
+    const name = enText(p.PlayerName);
+    if (!base || !name) continue;
+    out.push({ name, photoUrl: headshotUrl(base) });
   }
   return out;
 }
 
-async function fetchSquad(page: Page, slug: string): Promise<FifaPlayer[]> {
-  const url = `${BASE}/teams/${slug}/squad`;
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-  await page
-    .waitForSelector(`img[srcset*="digitalhub.fifa.com"]`, { timeout: 20000 })
-    .catch(() => {});
-
-  let players = await readSquadImgs(page);
-  if (players.length === 0) {
-    // SPA didn't bind images yet — retry once with a longer wait.
-    await page.waitForTimeout(3000);
-    players = await readSquadImgs(page);
-  }
-  return players;
-}
-
 async function main() {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ userAgent: USER_AGENT });
-  const page = await context.newPage();
-
-  console.log(`Tournament: ${TOURNAMENT}`);
   console.log("Fetching team list from FIFA…");
-  const teamSlugs = await fetchTeamSlugs(page);
-  console.log(`  → ${teamSlugs.length} teams listed on FIFA`);
-
-  if (teamSlugs.length === 0) {
-    console.warn(
-      "FIFA returned no teams for this tournament. Either the squad pages aren't live yet, or the URL pattern changed."
-    );
-    await browser.close();
-    return;
-  }
+  const fifaTeams = await fetchTeams();
+  console.log(`  → ${fifaTeams.length} teams in the competition`);
 
   const dbTeams = await prisma.team.findMany({
     include: { players: { select: { id: true, name: true } } },
   });
-  // Match by both normalized name and slug-form ("United States" → "UNITED STATES").
-  const dbTeamByNorm = new Map<string, (typeof dbTeams)[number]>();
-  for (const t of dbTeams) {
-    dbTeamByNorm.set(normalizeName(t.name), t);
-    dbTeamByNorm.set(normalizeName(t.code), t);
-  }
-  function findDbTeam(
-    fifaName: string,
-    fifaSlug: string
-  ): (typeof dbTeams)[number] | undefined {
-    return (
-      dbTeamByNorm.get(normalizeName(fifaSlug)) ??
-      dbTeamByNorm.get(normalizeName(fifaName)) ??
-      // Try just the first word of the heading (strip parens/codes).
-      dbTeamByNorm.get(normalizeName(fifaName.split(/[(,]/)[0]))
-    );
-  }
+  // FIFA's IdCountry matches our Team.code for most teams; fall back to name.
+  const byCode = new Map(dbTeams.map((t) => [t.code.toUpperCase(), t]));
+  const byName = new Map(dbTeams.map((t) => [normalizeName(t.name), t]));
+  const findDbTeam = (ft: FifaTeam) =>
+    byCode.get(ft.country.toUpperCase()) ?? byName.get(normalizeName(ft.name));
 
   let matchedTeams = 0;
+  let teamsWithPhotos = 0;
   let totalScraped = 0;
-  let totalMatched = 0;
   let totalUpdated = 0;
 
-  for (const { name: fifaTeamName, slug } of teamSlugs) {
-    const dbTeam = findDbTeam(fifaTeamName, slug);
+  for (const ft of fifaTeams) {
+    const dbTeam = findDbTeam(ft);
     if (!dbTeam) {
-      console.log(`  · ${fifaTeamName} (${slug}): no matching team in DB, skipping`);
+      console.log(`  · ${ft.name} (${ft.country}): no matching team in DB, skipping`);
       continue;
     }
     matchedTeams++;
-    process.stdout.write(`  · ${fifaTeamName} (${slug})… `);
+    process.stdout.write(`  · ${ft.name}… `);
 
-    let scraped: FifaPlayer[] = [];
+    let squad: FifaPlayer[] = [];
     try {
-      scraped = await fetchSquad(page, slug);
+      squad = await fetchSquad(ft.id);
     } catch (err) {
       console.log(`failed: ${err instanceof Error ? err.message : err}`);
       continue;
     }
-    totalScraped += scraped.length;
+    if (squad.length === 0) {
+      console.log(`no photos published yet`);
+      continue;
+    }
+    teamsWithPhotos++;
+    totalScraped += squad.length;
 
-    let matched = 0;
     let updated = 0;
-    for (const fp of scraped) {
+    for (const fp of squad) {
       const dbPlayer = matchPlayer(fp.name, dbTeam.players);
       if (!dbPlayer) continue;
-      matched++;
-      const result = await prisma.player.update({
+      await prisma.player.update({
         where: { id: dbPlayer.id },
         data: { photo: fp.photoUrl, fifaName: fp.name },
-        select: { id: true },
       });
-      if (result) updated++;
+      updated++;
     }
-    totalMatched += matched;
     totalUpdated += updated;
-    console.log(
-      `${scraped.length} scraped, ${matched} matched (DB roster: ${dbTeam.players.length})`
-    );
+    console.log(`${squad.length} with photos, ${updated} matched (DB roster: ${dbTeam.players.length})`);
   }
 
   const [totalPlayers, withoutPhoto] = await Promise.all([
@@ -208,21 +159,17 @@ async function main() {
   ]);
 
   console.log(`\nSummary`);
-  console.log(`  teams found on FIFA:    ${teamSlugs.length}`);
+  console.log(`  teams in competition:   ${fifaTeams.length}`);
   console.log(`  teams matched in DB:    ${matchedTeams}`);
-  console.log(`  players scraped:        ${totalScraped}`);
-  console.log(`  players matched:        ${totalMatched}`);
+  console.log(`  teams with FIFA photos: ${teamsWithPhotos}`);
+  console.log(`  FIFA headshots seen:    ${totalScraped}`);
   console.log(`  Player.photo updates:   ${totalUpdated}`);
-  console.log(
-    `  players with a photo:   ${totalPlayers - withoutPhoto}/${totalPlayers}`
-  );
+  console.log(`  players with a photo:   ${totalPlayers - withoutPhoto}/${totalPlayers}`);
   if (withoutPhoto > 0) {
     console.log(
-      `  ${withoutPhoto} player(s) had no FIFA match — they render the initials avatar.`
+      `  ${withoutPhoto} player(s) have no FIFA photo yet — they render the initials avatar.`
     );
   }
-
-  await browser.close();
 }
 
 main()
