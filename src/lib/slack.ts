@@ -64,6 +64,43 @@ async function lookupOnce(
   return { id: data.user.id, image, name };
 }
 
+export type SlackPostResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Post a message to a Slack channel (or DM, when given a user ID). Requires
+ * the `chat:write` scope and, for channels, bot membership. Never throws —
+ * failures come back as `{ ok: false, error }`.
+ */
+export async function postSlackMessage(
+  channel: string,
+  text: string,
+  blocks?: Record<string, unknown>[]
+): Promise<SlackPostResult> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) return { ok: false, error: "SLACK_BOT_TOKEN is not configured" };
+  try {
+    const res = await fetch(`${SLACK_API}/chat.postMessage`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ channel, text, ...(blocks ? { blocks } : {}) }),
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    return data.ok
+      ? { ok: true }
+      : { ok: false, error: data.error ?? "unknown Slack error" };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "network error",
+    };
+  }
+}
+
 /**
  * Send a DM to a Slack user. Silently returns false when no token is
  * configured or the call fails. Never throws — callers can fire-and-forget.
@@ -72,24 +109,7 @@ export async function sendSlackDm(
   slackUserId: string,
   text: string
 ): Promise<boolean> {
-  const token = process.env.SLACK_BOT_TOKEN;
-  if (!token) return false;
-  try {
-    const res = await fetch(`${SLACK_API}/chat.postMessage`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ channel: slackUserId, text }),
-      cache: "no-store",
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { ok: boolean };
-    return data.ok;
-  } catch {
-    return false;
-  }
+  return (await postSlackMessage(slackUserId, text)).ok;
 }
 
 function fallbackEmails(email: string): string[] {
