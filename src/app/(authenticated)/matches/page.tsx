@@ -25,7 +25,7 @@ export default async function MatchesPage({
       predictions: userId
         ? {
             where: { userId },
-            select: { homeScore: true, awayScore: true },
+            select: { homeScore: true, awayScore: true, note: true },
           }
         : false,
     },
