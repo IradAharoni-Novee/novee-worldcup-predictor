@@ -83,7 +83,6 @@ export function ThirdPlaceQualifiersForm({
       });
     }, 400);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   function toggle(teamId: string) {

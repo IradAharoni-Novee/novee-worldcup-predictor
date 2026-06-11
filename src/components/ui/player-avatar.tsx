@@ -1,3 +1,4 @@
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -46,6 +47,18 @@ export function PlayerAvatar({
   className,
 }: Props) {
   const dim = { width: size, height: size };
+  const initialsFallback = (
+    <div
+      className={cn(
+        "rounded-full w-full h-full flex items-center justify-center font-semibold",
+        paletteFor(name)
+      )}
+      style={{ fontSize: Math.max(10, Math.floor(size * 0.38)) }}
+      aria-hidden
+    >
+      {initials(name)}
+    </div>
+  );
   return (
     <div
       className={cn("relative shrink-0", className)}
@@ -53,25 +66,15 @@ export function PlayerAvatar({
       aria-label={teamName ? `${name}, ${teamName}` : name}
     >
       {photo ? (
-        <img
+        <AvatarImage
           src={photo}
           alt=""
-          width={size}
-          height={size}
-          className="rounded-full object-cover w-full h-full bg-[color:var(--color-surface-secondary)]"
-          loading="lazy"
+          size={size}
+          className="w-full h-full bg-[color:var(--color-surface-secondary)]"
+          fallback={initialsFallback}
         />
       ) : (
-        <div
-          className={cn(
-            "rounded-full w-full h-full flex items-center justify-center font-semibold",
-            paletteFor(name)
-          )}
-          style={{ fontSize: Math.max(10, Math.floor(size * 0.38)) }}
-          aria-hidden
-        >
-          {initials(name)}
-        </div>
+        initialsFallback
       )}
       {teamFlag && (
         <img

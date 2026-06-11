@@ -6,7 +6,8 @@ import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 import { ALLOWED_EMAIL_DOMAIN, isAllowedEmail } from "@/lib/email-allowlist";
-import { fetchSlackProfile, sendSlackDm } from "@/lib/slack";
+import { sendSlackDm } from "@/lib/slack";
+import { syncSlackProfile } from "@/lib/sync-slack-profile";
 import { verifyPassword } from "@/lib/password";
 import { veeveeLine } from "@/lib/veevee-voice";
 
@@ -95,25 +96,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   events: {
     async createUser({ user }) {
-      // First sign-in: look up the user in Slack and store their display name + photo,
-      // then DM them a welcome from VeeVee. Silently no-ops if SLACK_BOT_TOKEN is
-      // unset or the user isn't in the workspace.
+      // First sign-in: store the user's Slack display name + photo, then DM
+      // them a welcome from VeeVee. Silently no-ops if SLACK_BOT_TOKEN is unset
+      // or the user isn't in the workspace.
       if (!user.id || !user.email) return;
       try {
-        const profile = await fetchSlackProfile(user.email);
-        if (!profile) return;
-        const data: { image?: string; name?: string } = {};
-        if (profile.image) data.image = profile.image;
-        if (profile.name) data.name = profile.name;
-        if (Object.keys(data).length > 0) {
-          await prisma.user.update({ where: { id: user.id }, data });
-        }
+        const result = await syncSlackProfile(user.id, user.email);
+        if (!result) return;
+        const slackId = result.profile.id;
         // Fire-and-forget welcome DM. Failures are silent.
-        void sendSlackDm(profile.id, veeveeLine("firstSignIn", profile.id));
+        void sendSlackDm(slackId, veeveeLine("firstSignIn", slackId));
       } catch (err) {
         // Never block sign-in on a Slack lookup failure.
         // eslint-disable-next-line no-console
         console.error("Slack profile lookup failed:", err);
+      }
+    },
+    async signIn({ user, isNewUser }) {
+      // Returning sign-in: re-sync the Slack photo so a changed avatar updates
+      // instead of leaving the stale (now-404ing) URL cached. createUser
+      // already handles brand-new users.
+      if (isNewUser || !user.id || !user.email) return;
+      try {
+        await syncSlackProfile(user.id, user.email);
+      } catch (err) {
+        // Never block sign-in on a Slack lookup failure.
+        // eslint-disable-next-line no-console
+        console.error("Slack profile refresh failed:", err);
       }
     },
   },
