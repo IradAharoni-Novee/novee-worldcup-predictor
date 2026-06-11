@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
 import { LiveBadge } from "@/components/match/live-badge";
+import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
 import { PredictionForm } from "@/components/match/prediction-form";
 import {
   LocalKickoff,
@@ -14,7 +15,7 @@ import {
 } from "@/components/predictor/submission-deadline";
 import { PageContainer } from "@/components/shell/page-container";
 import { cn } from "@/lib/cn";
-import { isLocked, stageLabel } from "@/lib/format";
+import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
 import { veeveeLine } from "@/lib/veevee-voice";
@@ -58,6 +59,7 @@ export default async function MatchDetailPage({
 
   const prediction = match.predictions[0] ?? null;
   const locked = isLocked(match.kickoff) || match.status !== "SCHEDULED";
+  const live = isMatchLive(match.status, match.kickoff);
   const hasScore = match.homeScore != null && match.awayScore != null;
   // Show the scoreline for finished matches and for live matches once a score
   // has synced; a live match with no score yet still falls back to "vs".
@@ -125,6 +127,7 @@ export default async function MatchDetailPage({
 
   return (
     <PageContainer title={stageLabel(match.stage, match.group)}>
+      {live && <LiveScoreRefresher />}
       <Link
         href="/matches"
         className="inline-flex items-center gap-1 text-sm text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] mb-3"
@@ -149,7 +152,7 @@ export default async function MatchDetailPage({
           <div className="grid grid-cols-3 items-center gap-4 py-4">
             <TeamBlock team={match.homeTeam} dim={loser === "home"} />
             <div className="flex flex-col items-center gap-1.5 text-center">
-              {match.status === "LIVE" && <LiveBadge />}
+              {live && <LiveBadge />}
               {showScore ? (
                 <div className="code code-size-large text-4xl tabular-nums">
                   <span

@@ -6,6 +6,10 @@ import {
   type FdMatch,
 } from "@/lib/football-data";
 import { fetchEspnDay, type EspnEvent } from "@/lib/espn";
+import {
+  fetchWorldCupFixturesByDate,
+  type AfFixture,
+} from "@/lib/api-football";
 
 function mapStage(stage: FdMatch["stage"]): Stage {
   switch (stage) {
@@ -116,6 +120,95 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   }
 
   return { teamsUpserted: teamsById.size, matchesUpserted: matches.length };
+}
+
+// Map an API-Football fixture status short code to our MatchStatus. Returns
+// null for statuses that carry no usable result (not started, postponed,
+// cancelled, …) so the sync leaves those matches untouched.
+export function mapApiFootballStatus(short: string): MatchStatus | null {
+  switch (short) {
+    case "1H":
+    case "HT":
+    case "2H":
+    case "ET":
+    case "BT":
+    case "P":
+    case "SUSP":
+    case "INT":
+    case "LIVE":
+      return MatchStatus.LIVE;
+    case "FT":
+    case "AET":
+    case "PEN":
+      return MatchStatus.FINISHED;
+    default:
+      return null;
+  }
+}
+
+type LiveMatch = { id: string; kickoff: Date; homeName: string; awayName: string };
+
+// Pair a DB match with the API-Football fixture at the same kickoff minute,
+// confirming team names (diacritic-insensitive, either orientation) so two
+// matches kicking off simultaneously aren't confused.
+export function pickFixture(match: LiveMatch, fixtures: AfFixture[]): AfFixture | null {
+  const minute = isoMinute(match.kickoff);
+  const home = normaliseName(match.homeName);
+  const away = normaliseName(match.awayName);
+  for (const f of fixtures) {
+    if (isoMinute(f.date) !== minute) continue;
+    const fHome = normaliseName(f.homeName);
+    const fAway = normaliseName(f.awayName);
+    if ((fHome === home && fAway === away) || (fHome === away && fAway === home)) {
+      return f;
+    }
+  }
+  return null;
+}
+
+// Per-minute live-score sync. Pulls current scores + status from API-Football
+// (which refreshes in-play fixtures every ~15s) for matches that have kicked
+// off but aren't finished, and writes score + status. Querying by date — not
+// the live-only feed — also captures the final score as a match ends. Unlike
+// syncFromFootballData it touches no teams, kickoffs, venues, or squads.
+export async function syncLiveScores(): Promise<{ updated: number }> {
+  const now = new Date();
+  const matches = await prisma.match.findMany({
+    where: { status: { not: MatchStatus.FINISHED }, kickoff: { lte: now } },
+    select: {
+      id: true,
+      kickoff: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+  if (matches.length === 0) return { updated: 0 };
+
+  const live: LiveMatch[] = matches.map((m) => ({
+    id: m.id,
+    kickoff: m.kickoff,
+    homeName: m.homeTeam?.name ?? "",
+    awayName: m.awayTeam?.name ?? "",
+  }));
+
+  // UTC date per kickoff (usually one); the date feed returns every match that
+  // day with its current status, including matches that just ended.
+  const dates = new Set(live.map((m) => m.kickoff.toISOString().slice(0, 10)));
+  const fixtures = (await Promise.all([...dates].map(fetchWorldCupFixturesByDate))).flat();
+
+  let updated = 0;
+  for (const m of live) {
+    const fixture = pickFixture(m, fixtures);
+    if (!fixture) continue;
+    const status = mapApiFootballStatus(fixture.statusShort);
+    if (!status) continue;
+    const res = await prisma.match.updateMany({
+      where: { id: m.id },
+      data: { homeScore: fixture.homeGoals, awayScore: fixture.awayGoals, status },
+    });
+    updated += res.count;
+  }
+  return { updated };
 }
 
 export type SyncVenuesResult = {

@@ -1,9 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/shell/page-container";
 import { MatchCard } from "@/components/match/match-card";
+import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { scorePrediction } from "@/lib/scoring";
+import { isMatchLive } from "@/lib/format";
 import { veeveeLine } from "@/lib/veevee-voice";
 
 type Filter = "upcoming" | "live" | "finished";
@@ -34,9 +36,9 @@ export default async function MatchesPage({
   const now = new Date();
   const buckets: Record<Filter, typeof matches> = {
     upcoming: matches.filter(
-      (m) => m.status === "SCHEDULED" && m.kickoff > now
+      (m) => m.status !== "FINISHED" && !isMatchLive(m.status, m.kickoff, now)
     ),
-    live: matches.filter((m) => m.status === "LIVE"),
+    live: matches.filter((m) => isMatchLive(m.status, m.kickoff, now)),
     finished: matches.filter((m) => m.status === "FINISHED"),
   };
 
@@ -88,6 +90,7 @@ export default async function MatchesPage({
 
   return (
     <PageContainer title="Matches">
+      {buckets.live.length > 0 && <LiveScoreRefresher />}
       <Tabs defaultValue={filter}>
         <TabsList>
           <TabsTrigger value="upcoming">
