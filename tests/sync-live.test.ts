@@ -1,61 +1,76 @@
 import { describe, expect, it } from "vitest";
 import { MatchStatus } from "@prisma/client";
-import { liveScoreWrites } from "@/lib/sync";
-import type { FdMatch } from "@/lib/football-data";
+import { mapApiFootballStatus, pickFixture } from "@/lib/sync";
+import type { AfFixture } from "@/lib/api-football";
 
-function fd(overrides: Partial<FdMatch>): FdMatch {
+function fixture(overrides: Partial<AfFixture>): AfFixture {
   return {
-    id: 1,
-    utcDate: "2026-06-11T19:00:00Z",
-    status: "TIMED",
-    stage: "GROUP_STAGE",
-    group: "GROUP_A",
-    homeTeam: { id: 10, name: "Mexico", shortName: "Mexico", tla: "MEX", crest: null },
-    awayTeam: { id: 11, name: "South Africa", shortName: "RSA", tla: "RSA", crest: null },
-    score: { fullTime: { home: null, away: null }, halfTime: { home: null, away: null } },
+    fixtureId: 1,
+    date: "2026-06-11T19:00:00+00:00",
+    homeName: "Mexico",
+    awayName: "South Africa",
+    homeGoals: 1,
+    awayGoals: 0,
+    statusShort: "1H",
     ...overrides,
   };
 }
 
-describe("liveScoreWrites", () => {
-  it("writes the current score and LIVE for an in-play match", () => {
-    const writes = liveScoreWrites([
-      fd({ id: 7, status: "IN_PLAY", score: { fullTime: { home: 2, away: 1 }, halfTime: { home: 1, away: 0 } } }),
-    ]);
-    expect(writes).toEqual([
-      {
-        fdId: 7,
-        data: { homeScore: 2, awayScore: 1, status: MatchStatus.LIVE },
-        requireUnfinished: false,
-      },
-    ]);
+describe("mapApiFootballStatus", () => {
+  it("maps in-progress codes to LIVE", () => {
+    for (const s of ["1H", "HT", "2H", "ET", "BT", "P"]) {
+      expect(mapApiFootballStatus(s)).toBe(MatchStatus.LIVE);
+    }
   });
 
-  it("treats a paused (half-time) match as live", () => {
-    const writes = liveScoreWrites([fd({ id: 8, status: "PAUSED" })]);
-    expect(writes[0]?.data.status).toBe(MatchStatus.LIVE);
-    expect(writes[0]?.requireUnfinished).toBe(false);
+  it("maps finished codes (incl. extra time / penalties) to FINISHED", () => {
+    for (const s of ["FT", "AET", "PEN"]) {
+      expect(mapApiFootballStatus(s)).toBe(MatchStatus.FINISHED);
+    }
   });
 
-  it("flips a finished match to FINISHED only if not already final", () => {
-    const writes = liveScoreWrites([
-      fd({ id: 9, status: "FINISHED", score: { fullTime: { home: 3, away: 0 }, halfTime: { home: 1, away: 0 } } }),
-    ]);
-    expect(writes).toEqual([
-      {
-        fdId: 9,
-        data: { homeScore: 3, awayScore: 0, status: MatchStatus.FINISHED },
-        requireUnfinished: true,
-      },
-    ]);
+  it("returns null for not-started / non-result codes so they are left alone", () => {
+    for (const s of ["NS", "TBD", "PST", "CANC", "ABD"]) {
+      expect(mapApiFootballStatus(s)).toBeNull();
+    }
+  });
+});
+
+describe("pickFixture", () => {
+  const match = {
+    id: "m1",
+    kickoff: new Date("2026-06-11T19:00:00Z"),
+    homeName: "Mexico",
+    awayName: "South Africa",
+  };
+
+  it("matches on kickoff minute and team names", () => {
+    const f = pickFixture(match, [fixture({ fixtureId: 42 })]);
+    expect(f?.fixtureId).toBe(42);
   });
 
-  it("ignores matches that have not started", () => {
-    const writes = liveScoreWrites([
-      fd({ id: 1, status: "SCHEDULED" }),
-      fd({ id: 2, status: "TIMED" }),
-      fd({ id: 3, status: "POSTPONED" }),
+  it("matches regardless of home/away orientation", () => {
+    const f = pickFixture(match, [
+      fixture({ fixtureId: 7, homeName: "South Africa", awayName: "Mexico" }),
     ]);
-    expect(writes).toEqual([]);
+    expect(f?.fixtureId).toBe(7);
+  });
+
+  it("disambiguates two matches at the same kickoff by team names", () => {
+    const fixtures = [
+      fixture({ fixtureId: 1, homeName: "Brazil", awayName: "Croatia" }),
+      fixture({ fixtureId: 2, homeName: "Mexico", awayName: "South Africa" }),
+    ];
+    expect(pickFixture(match, fixtures)?.fixtureId).toBe(2);
+  });
+
+  it("ignores fixtures at a different kickoff time", () => {
+    const f = pickFixture(match, [fixture({ date: "2026-06-12T02:00:00+00:00" })]);
+    expect(f).toBeNull();
+  });
+
+  it("returns null when no team names match", () => {
+    const f = pickFixture(match, [fixture({ homeName: "Brazil", awayName: "Croatia" })]);
+    expect(f).toBeNull();
   });
 });
