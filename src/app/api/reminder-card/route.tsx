@@ -47,7 +47,9 @@ export async function GET() {
           style={{
             display: "flex",
             flexDirection: "column",
-            marginLeft: 500,
+            // Logo art ends ≈x=390; center the panel in the remaining space.
+            marginLeft: 525,
+            width: 780,
             padding: "44px 56px",
             borderRadius: 28,
             backgroundColor: "rgba(15, 23, 42, 0.62)",
@@ -61,7 +63,7 @@ export async function GET() {
               letterSpacing: 6,
               textTransform: "uppercase",
               color: "#c4b5fd",
-              marginBottom: 24,
+              marginBottom: 28,
             }}
           >
             Leaderboard
@@ -77,14 +79,53 @@ export async function GET() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 24,
-                  fontSize: i === 0 ? 56 : 44,
+                  width: "100%",
+                  fontSize: i === 0 ? 52 : 44,
                   fontWeight: 700,
-                  marginBottom: i === 2 ? 0 : 18,
+                  marginBottom: i === 2 ? 0 : 20,
                 }}
               >
-                <span style={{ display: "flex" }}>{MEDALS[i]}</span>
-                <span style={{ display: "flex" }}>
+                <span
+                  style={{
+                    display: "flex",
+                    width: 76,
+                    justifyContent: "center",
+                  }}
+                >
+                  {MEDALS[i]}
+                </span>
+                {row.image ? (
+                  <img
+                    src={row.image}
+                    alt=""
+                    width={68}
+                    height={68}
+                    style={{ borderRadius: 9999, marginLeft: 8 }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      width: 68,
+                      height: 68,
+                      borderRadius: 9999,
+                      marginLeft: 8,
+                      backgroundColor: "#7c6cf0",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 34,
+                    }}
+                  >
+                    {displayName(row.name, row.email).charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span
+                  style={{
+                    display: "flex",
+                    flexGrow: 1,
+                    marginLeft: 20,
+                  }}
+                >
                   {displayName(row.name, row.email)}
                 </span>
                 <span
