@@ -33,6 +33,15 @@
   --color-brand-900: #8e55fd;
   --color-brand-1000: #8149eb;
 
+  /* FIFA World Cup 26 "festival" brights — saturated marketing accents for the
+     public landing surfaces only, layered over the tournament tri-color. */
+  --color-fifa-magenta: #ff2d9b;
+  --color-fifa-sunset: #ff5a1f;
+  --color-fifa-lime: #b6f328;
+  --color-fifa-cyan: #18cfe6;
+  --color-fifa-violet: #7b3ff2;
+  --color-fifa-gold: #ffc83d;
+
   /* Slate */
   --color-slate-100: #ffffff;
   --color-slate-200: #f9f9fb;

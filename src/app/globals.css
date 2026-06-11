@@ -148,3 +148,150 @@ body.veevee-konami::after {
     opacity: 0.7;
   }
 }
+
+/* ==========================================================================
+   Landing page motion — staggered entrance, a floating hero emblem, drifting
+   color blobs, and the host-city kit marquee. Each element opts in with a
+   class and (for the entrance) an inline animation-delay. All motion is
+   disabled under prefers-reduced-motion, with .lp-rise snapping to its final
+   state so content never stays hidden.
+   ========================================================================== */
+
+.lp-rise {
+  opacity: 0;
+  animation: lp-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lp-float {
+  animation: lp-float 7s ease-in-out infinite;
+}
+
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+.lp-halo-spin {
+  animation: lp-halo-spin 22s linear infinite;
+}
+
+@keyframes lp-halo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slow, organic drift for the festival color blobs on the landing backdrop. */
+.lp-drift {
+  animation: lp-drift 20s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes lp-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4%, -3%, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-3%, 4%, 0) scale(0.95);
+  }
+}
+
+/* Seamless host-city kit marquee. The track holds two copies of the list, so
+   translating by -50% lands exactly on the start of the second copy. */
+.lp-marquee {
+  animation: lp-marquee 85s linear infinite;
+  will-change: transform;
+}
+
+.group\/marquee:hover .lp-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes lp-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Host-city flip cards: poster on the front, kit on the back. Hovering a card
+   (which also pauses the marquee) rotates the inner track 180° to reveal the
+   jersey. */
+.flip-card {
+  perspective: 1200px;
+}
+
+.flip-inner {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.flip-card:hover .flip-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+.lp-twinkle {
+  animation: lp-twinkle 4s ease-in-out infinite;
+}
+
+@keyframes lp-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-rise {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .lp-float,
+  .lp-halo-spin,
+  .lp-twinkle,
+  .lp-drift,
+  .lp-marquee {
+    animation: none;
+  }
+  .flip-inner {
+    transition: none;
+  }
+}
