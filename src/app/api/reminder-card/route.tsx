@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { getLeaderboard } from "@/lib/leaderboard";
+import { withRetry } from "@/lib/retry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET() {
     path.join(process.cwd(), "public", "reminder-card-bg.jpg")
   );
   const bgSrc = `data:image/jpeg;base64,${bg.toString("base64")}`;
-  const top3 = (await getLeaderboard()).slice(0, 3);
+  const top3 = (await withRetry(() => getLeaderboard())).slice(0, 3);
 
   return new ImageResponse(
     (

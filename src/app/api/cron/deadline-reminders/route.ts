@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { postSlackMessage } from "@/lib/slack";
+import { withRetry } from "@/lib/retry";
 import {
   buildReminderMessage,
   collectDailyDeadlines,
@@ -15,6 +16,11 @@ const APP_URL = "https://noveecuppredictor.world";
 // Setting row used to make the cron idempotent within a day (retries,
 // manual re-runs).
 const LAST_POSTED_KEY = "deadlineReminder:lastPosted";
+
+// A cold/asleep Neon compute throws P1001 ("Can't reach database server") on
+// the first query. No user waits on this cron, so retry patiently to ride out
+// the wake-up instead of failing the whole run.
+const DB_RETRY = { retries: 5, baseDelayMs: 500 };
 
 function unauthorized() {
   return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -34,9 +40,10 @@ async function handle(req: Request) {
   const now = new Date();
   const dateKey = now.toISOString().slice(0, 10);
 
-  const lastPosted = await prisma.setting.findUnique({
-    where: { key: LAST_POSTED_KEY },
-  });
+  const lastPosted = await withRetry(
+    () => prisma.setting.findUnique({ where: { key: LAST_POSTED_KEY } }),
+    DB_RETRY
+  );
   if (lastPosted?.value === dateKey) {
     return NextResponse.json({
       ok: true,
@@ -45,15 +52,19 @@ async function handle(req: Request) {
     });
   }
 
-  const matches = await prisma.match.findMany({
-    select: {
-      stage: true,
-      group: true,
-      kickoff: true,
-      homeTeam: { select: { name: true } },
-      awayTeam: { select: { name: true } },
-    },
-  });
+  const matches = await withRetry(
+    () =>
+      prisma.match.findMany({
+        select: {
+          stage: true,
+          group: true,
+          kickoff: true,
+          homeTeam: { select: { name: true } },
+          awayTeam: { select: { name: true } },
+        },
+      }),
+    DB_RETRY
+  );
 
   const deadlines = collectDailyDeadlines(
     matches.map((m) => ({
@@ -95,11 +106,17 @@ async function handle(req: Request) {
     );
   }
 
-  await prisma.setting.upsert({
-    where: { key: LAST_POSTED_KEY },
-    update: { value: dateKey },
-    create: { key: LAST_POSTED_KEY, value: dateKey },
-  });
+  // Resilient because a missed write here means the next run reposts (the
+  // Slack message already went out above) — a duplicate, not just a retry.
+  await withRetry(
+    () =>
+      prisma.setting.upsert({
+        where: { key: LAST_POSTED_KEY },
+        update: { value: dateKey },
+        create: { key: LAST_POSTED_KEY, value: dateKey },
+      }),
+    DB_RETRY
+  );
 
   return NextResponse.json({
     ok: true,
