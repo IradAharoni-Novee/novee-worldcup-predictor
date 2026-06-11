@@ -8,9 +8,15 @@
 //   https://digitalhub.fifa.com/transform/<GUID>/<filename>?...&width:<N>&quality=75
 // The squad pages list each player with an img.alt of "Firstname LASTNAME" and
 // an img.srcset containing five widths. We pick the 320w variant.
+//
+// Players we can't match to a FIFA headshot (in the DB roster but not in FIFA's
+// published squad, or vice versa) keep photo=null and render the on-brand
+// initials chip from <PlayerAvatar>, so every player still shows an image.
+// Name normalization + matching live in @/lib/squad-photos (unit-tested).
 
 import { chromium, type Page } from "@playwright/test";
 import { prisma } from "@/lib/prisma";
+import { matchPlayer, normalizeName, pickWidth } from "@/lib/squad-photos";
 
 const TOURNAMENT = process.argv[2] || "canadamexicousa2026";
 const BASE = `https://www.fifa.com/en/tournaments/mens/worldcup/${TOURNAMENT}`;
@@ -18,36 +24,6 @@ const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
 
 type FifaPlayer = { name: string; photoUrl: string };
-
-function normalizeName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // strip diacritics
-    .replace(/[^a-zA-Z]+/g, " ")
-    .trim()
-    .toUpperCase();
-}
-
-function pickWidth(srcset: string, preferredWidth: number): string | null {
-  // srcset entries are "<url> <width>w" separated by commas, but the URLs
-  // themselves contain commas (e.g. "transform:fill,aspectratio:1x1,...").
-  // Match url+width pairs directly instead of splitting on commas.
-  const matches = [
-    ...srcset.matchAll(/(https?:\/\/\S+?)\s+(\d+)w(?=\s*,|\s*$)/g),
-  ];
-  let best: { url: string; width: number } | null = null;
-  for (const m of matches) {
-    const url = m[1];
-    const w = parseInt(m[2], 10);
-    if (
-      !best ||
-      Math.abs(w - preferredWidth) < Math.abs(best.width - preferredWidth)
-    ) {
-      best = { url, width: w };
-    }
-  }
-  return best?.url ?? null;
-}
 
 async function dismissCookieBanner(page: Page) {
   try {
@@ -144,42 +120,6 @@ async function fetchSquad(page: Page, slug: string): Promise<FifaPlayer[]> {
   return players;
 }
 
-function matchPlayer(
-  fifaName: string,
-  candidates: { id: string; name: string }[]
-): { id: string; name: string } | null {
-  const want = normalizeName(fifaName);
-  // exact normalized match
-  for (const c of candidates) {
-    if (normalizeName(c.name) === want) return c;
-  }
-  // last-name match — but always require first initial to agree when available,
-  // so e.g. FIFA's "Lautaro MARTINEZ" doesn't get assigned to DB's "Emiliano Martínez".
-  const wantParts = want.split(" ");
-  if (wantParts.length === 0) return null;
-  const wantLast = wantParts[wantParts.length - 1];
-  const wantFirstInitial = wantParts.length > 1 ? wantParts[0][0] : null;
-
-  const lastMatches = candidates.filter((c) => {
-    const parts = normalizeName(c.name).split(" ");
-    return parts[parts.length - 1] === wantLast;
-  });
-  if (lastMatches.length === 0) return null;
-
-  if (wantFirstInitial) {
-    const narrowed = lastMatches.filter((c) => {
-      const parts = normalizeName(c.name).split(" ");
-      return parts[0]?.[0] === wantFirstInitial;
-    });
-    if (narrowed.length === 1) return narrowed[0];
-    // First initial disagrees with every candidate → refuse to match.
-    return null;
-  }
-
-  // No first initial to disambiguate; only accept when last-name is unique.
-  return lastMatches.length === 1 ? lastMatches[0] : null;
-}
-
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ userAgent: USER_AGENT });
@@ -262,12 +202,25 @@ async function main() {
     );
   }
 
+  const [totalPlayers, withoutPhoto] = await Promise.all([
+    prisma.player.count(),
+    prisma.player.count({ where: { photo: null } }),
+  ]);
+
   console.log(`\nSummary`);
   console.log(`  teams found on FIFA:    ${teamSlugs.length}`);
   console.log(`  teams matched in DB:    ${matchedTeams}`);
   console.log(`  players scraped:        ${totalScraped}`);
   console.log(`  players matched:        ${totalMatched}`);
   console.log(`  Player.photo updates:   ${totalUpdated}`);
+  console.log(
+    `  players with a photo:   ${totalPlayers - withoutPhoto}/${totalPlayers}`
+  );
+  if (withoutPhoto > 0) {
+    console.log(
+      `  ${withoutPhoto} player(s) had no FIFA match — they render the initials avatar.`
+    );
+  }
 
   await browser.close();
 }
