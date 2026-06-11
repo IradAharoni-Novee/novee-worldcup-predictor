@@ -3,7 +3,7 @@ import { ArrowUpRight, Lock, MapPin, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
-import { isLocked, stageLabel } from "@/lib/format";
+import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
 import { InlineScoreEditor } from "@/components/match/inline-score-editor";
 import { LiveBadge } from "@/components/match/live-badge";
 import { TeamRow, type TeamLite } from "@/components/match/team-row";
@@ -89,6 +89,7 @@ export function MatchCard({
   points,
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
+  const live = isMatchLive(status, kickoff);
   const loser =
     status === "FINISHED" && homeScore != null && awayScore != null && homeScore !== awayScore
       ? homeScore > awayScore
@@ -104,7 +105,7 @@ export function MatchCard({
             color={stageChipColor(stage)}
             label={stageLabel(stage, group)}
           />
-          {status === "LIVE" && <LiveBadge />}
+          {live && <LiveBadge />}
           {status === "FINISHED" && points != null && (
             <Chip
               size="small"

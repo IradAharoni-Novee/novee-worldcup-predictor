@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
-import { formatKickoff, stageLabel } from "@/lib/format";
+import { formatKickoff, isMatchLive, stageLabel } from "@/lib/format";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { scorePrediction } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/group-standings";
@@ -433,7 +433,7 @@ export default async function MePage() {
                       <span className="text-[color:var(--color-text-tertiary)]">
                         {p.match.status === "FINISHED"
                           ? `Actual: ${p.match.homeScore}–${p.match.awayScore}`
-                          : p.match.status === "LIVE"
+                          : isMatchLive(p.match.status, p.match.kickoff)
                             ? "Live"
                             : "Upcoming"}
                       </span>

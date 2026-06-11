@@ -118,6 +118,62 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   return { teamsUpserted: teamsById.size, matchesUpserted: matches.length };
 }
 
+export type LiveScoreWrite = {
+  fdId: number;
+  data: { homeScore: number | null; awayScore: number | null; status: MatchStatus };
+  // Finished matches are only flipped when not already final, so the
+  // per-minute live sync skips re-writing matches that ended long ago.
+  requireUnfinished: boolean;
+};
+
+// Pure decision logic for the live-score sync: which matches FD reports as
+// started (in play, paused, or finished) and what score/status we should write.
+// Matches that haven't kicked off carry no live data and are skipped.
+export function liveScoreWrites(matches: FdMatch[]): LiveScoreWrite[] {
+  const writes: LiveScoreWrite[] = [];
+  for (const m of matches) {
+    if (m.status === "IN_PLAY" || m.status === "PAUSED") {
+      writes.push({
+        fdId: m.id,
+        data: {
+          homeScore: m.score.fullTime.home,
+          awayScore: m.score.fullTime.away,
+          status: MatchStatus.LIVE,
+        },
+        requireUnfinished: false,
+      });
+    } else if (m.status === "FINISHED") {
+      writes.push({
+        fdId: m.id,
+        data: {
+          homeScore: m.score.fullTime.home,
+          awayScore: m.score.fullTime.away,
+          status: MatchStatus.FINISHED,
+        },
+        requireUnfinished: true,
+      });
+    }
+  }
+  return writes;
+}
+
+// Lightweight sync for the live-score poller: pulls scores + status from FD and
+// updates only the matches that have started. Unlike syncFromFootballData it
+// touches no teams, kickoffs, venues, or squads, so it's cheap to run every
+// minute while matches are in progress.
+export async function syncLiveScores(): Promise<{ updated: number }> {
+  const matches = await fetchWorldCupMatches();
+  let updated = 0;
+  for (const w of liveScoreWrites(matches)) {
+    const where = w.requireUnfinished
+      ? { fdId: w.fdId, status: { not: MatchStatus.FINISHED } }
+      : { fdId: w.fdId };
+    const res = await prisma.match.updateMany({ where, data: w.data });
+    updated += res.count;
+  }
+  return { updated };
+}
+
 export type SyncVenuesResult = {
   matchesUpdated: number;
   matchesUnmatched: number;
