@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Flame, Loader2 } from "lucide-react";
 import { submitPrediction } from "@/lib/actions/predictions";
 import { veeveeLine } from "@/lib/veevee-voice";
 import { veeveeToast } from "@/components/ui/veevee-toast";
+import { TeamRow, type TeamLite } from "@/components/match/team-row";
+import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 
-type Initial = { homeScore: number; awayScore: number } | null;
+const NOTE_MAX = 80;
+
+type Initial = {
+  homeScore: number;
+  awayScore: number;
+  note?: string | null;
+} | null;
 
 // Iconic World Cup scores. Typing one flashes a small label for ~1s.
 // Easter egg — no UI affordance, no impact on prediction logic.
@@ -20,25 +28,34 @@ const HISTORIC_SCORES: Record<string, string> = {
 export function InlineScoreEditor({
   matchId,
   initial,
+  homeTeam,
+  awayTeam,
+  deadline,
 }: {
   matchId: string;
   initial: Initial;
+  homeTeam: TeamLite;
+  awayTeam: TeamLite;
+  deadline: Date;
 }) {
   const initialHome = initial?.homeScore ?? 0;
   const initialAway = initial?.awayScore ?? 0;
+  const initialNote = initial?.note ?? "";
   const [home, setHome] = useState(initialHome);
   const [away, setAway] = useState(initialAway);
+  const [note, setNote] = useState(initialNote);
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<
     "idle" | "saved" | { error: string }
   >("idle");
   const [historicGlyph, setHistoricGlyph] = useState<string | null>(null);
-  // Track the (homeScore, awayScore) pair the server already has. Seeded to
-  // the displayed values (0–0 when there's no prior pick) so the initial
-  // mount is a no-op — only real user edits trigger a save.
-  const lastSavedRef = useRef<readonly [number, number]>([
+  // Track the (homeScore, awayScore, note) the server already has. Seeded to
+  // the displayed values so the initial mount is a no-op — only real user
+  // edits trigger a save.
+  const lastSavedRef = useRef<readonly [number, number, string]>([
     initialHome,
     initialAway,
+    initialNote,
   ]);
   // Toast only on the first save per editor mount, so the auto-save on every
   // stepper click doesn't spam VeeVee.
@@ -55,7 +72,8 @@ export function InlineScoreEditor({
   }, [home, away]);
 
   useEffect(() => {
-    if (lastSavedRef.current[0] === home && lastSavedRef.current[1] === away) {
+    const [savedHome, savedAway, savedNote] = lastSavedRef.current;
+    if (savedHome === home && savedAway === away && savedNote === note) {
       return;
     }
     const timer = setTimeout(() => {
@@ -64,9 +82,10 @@ export function InlineScoreEditor({
         fd.set("matchId", matchId);
         fd.set("homeScore", String(home));
         fd.set("awayScore", String(away));
+        fd.set("note", note);
         const result = await submitPrediction(null, fd);
         if (result.ok) {
-          lastSavedRef.current = [home, away];
+          lastSavedRef.current = [home, away, note];
           setStatus("saved");
           if (!hasToastedRef.current) {
             hasToastedRef.current = true;
@@ -79,28 +98,31 @@ export function InlineScoreEditor({
     }, 600);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [home, away]);
+  }, [home, away, note]);
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 flex-wrap">
-        <Stepper
-          value={home}
-          onChange={setHome}
-          ariaLabel="Home team score"
+    <div className="px-4 flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
+        <TeamRow
+          team={homeTeam}
+          right={
+            <Stepper
+              value={home}
+              onChange={setHome}
+              ariaLabel={`${homeTeam?.name ?? "Home"} score`}
+            />
+          }
         />
-        <span
-          className="body body-size-small text-[color:var(--color-text-tertiary)]"
-          aria-hidden
-        >
-          –
-        </span>
-        <Stepper
-          value={away}
-          onChange={setAway}
-          ariaLabel="Away team score"
+        <TeamRow
+          team={awayTeam}
+          right={
+            <Stepper
+              value={away}
+              onChange={setAway}
+              ariaLabel={`${awayTeam?.name ?? "Away"} score`}
+            />
+          }
         />
-        <SaveBadge pending={pending} status={status} initial={initial !== null} />
       </div>
       {historicGlyph && (
         <span
@@ -110,6 +132,25 @@ export function InlineScoreEditor({
           {historicGlyph}
         </span>
       )}
+      <div className="flex items-center gap-2 border-t border-[color:var(--color-border-secondary)] pt-2.5">
+        <Flame
+          className="size-3.5 shrink-0 text-[color:var(--color-text-tertiary)]"
+          aria-hidden
+        />
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+          maxLength={NOTE_MAX}
+          placeholder="Call your shot… (optional)"
+          aria-label="Hot take (optional)"
+          className="flex-1 min-w-0 rounded-md border border-[color:var(--color-border-primary)] bg-transparent px-2.5 h-7 body body-size-small outline-none focus:border-[color:var(--color-border-hover)] placeholder:text-[color:var(--color-text-tertiary)]"
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <SaveBadge pending={pending} status={status} initial={initial !== null} />
+        <SubmissionDeadline deadline={deadline} />
+      </div>
     </div>
   );
 }
@@ -125,27 +166,27 @@ function SaveBadge({
 }) {
   if (pending) {
     return (
-      <span className="ml-auto body body-size-small text-[color:var(--color-text-secondary)] flex items-center gap-1">
+      <span className="body body-size-small text-[color:var(--color-text-secondary)] flex items-center gap-1">
         <Loader2 className="size-3.5 animate-spin" /> Saving…
       </span>
     );
   }
   if (status === "saved") {
     return (
-      <span className="ml-auto body body-size-small text-[color:var(--color-accent-success)] flex items-center gap-1">
+      <span className="body body-size-small text-[color:var(--color-accent-success)] flex items-center gap-1">
         <Check className="size-3.5" /> Saved
       </span>
     );
   }
   if (typeof status === "object") {
     return (
-      <span className="ml-auto body body-size-small text-[color:var(--color-accent-danger)]">
+      <span className="body body-size-small text-[color:var(--color-accent-danger)]">
         {status.error}
       </span>
     );
   }
   return (
-    <span className="ml-auto body body-size-small text-[color:var(--color-text-tertiary)]">
+    <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
       {initial ? "Your pick" : "Saves on change"}
     </span>
   );
