@@ -11,11 +11,12 @@ import {
   ThirdPlaceQualifiersForm,
   type Candidate,
 } from "@/components/predictor/third-place-qualifiers-form";
+import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import { computeGroupStandings } from "@/lib/group-standings";
 import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { getGroupLockTimes } from "@/lib/locks";
-import { isLocked, formatKickoff } from "@/lib/format";
+import { isLocked } from "@/lib/format";
 import { veeveeLine } from "@/lib/veevee-voice";
 
 type TeamLite = {
@@ -93,6 +94,13 @@ export default async function GroupsPage() {
       const t = lockTimes.get(g);
       return t ? isLocked(t, now) : false;
     });
+  // Third-place picks stay open until the last group's first kickoff.
+  const thirdPlaceLock = groups.every((g) => lockTimes.has(g))
+    ? groups.reduce<Date | null>((latest, g) => {
+        const t = lockTimes.get(g)!;
+        return latest && latest > t ? latest : t;
+      }, null)
+    : null;
 
   return (
     <PageContainer title="Groups">
@@ -182,13 +190,13 @@ export default async function GroupsPage() {
               )}
 
               <div className="body body-size-small text-[color:var(--color-text-tertiary)] flex items-center justify-between border-t border-[color:var(--color-border-secondary)] pt-2">
-                <span>
-                  {locked
-                    ? "First kickoff has passed"
-                    : lock
-                      ? `Locks ${formatKickoff(lock)}`
-                      : "Unscheduled"}
-                </span>
+                {locked ? (
+                  <span>First kickoff has passed</span>
+                ) : lock ? (
+                  <SubmissionDeadline deadline={lock} />
+                ) : (
+                  <span>Unscheduled</span>
+                )}
                 {pointsEarned !== null ? (
                   <span className="body-weight-medium text-[color:var(--color-accent-success)]">
                     {pointsEarned} pt{pointsEarned === 1 ? "" : "s"}
@@ -218,12 +226,17 @@ export default async function GroupsPage() {
             third-placed teams — picked across groups by points → GD → GF →
             head-to-head. Tell us which 8 you think advance.
           </p>
-          <Card className="px-4 py-4">
+          <Card className="px-4 py-4 gap-3">
             <ThirdPlaceQualifiersForm
               candidates={thirdPlaceCandidates}
               initialTeamIds={myThirdPlaceIds}
               locked={allGroupsLocked}
             />
+            {!allGroupsLocked && thirdPlaceLock && (
+              <div className="border-t border-[color:var(--color-border-secondary)] pt-2">
+                <SubmissionDeadline deadline={thirdPlaceLock} />
+              </div>
+            )}
           </Card>
         </section>
       )}

@@ -7,8 +7,12 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
 import { PredictionForm } from "@/components/match/prediction-form";
+import {
+  LocalKickoff,
+  SubmissionDeadline,
+} from "@/components/predictor/submission-deadline";
 import { PageContainer } from "@/components/shell/page-container";
-import { formatKickoff, isLocked, stageLabel } from "@/lib/format";
+import { isLocked, stageLabel } from "@/lib/format";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
 import { veeveeLine } from "@/lib/veevee-voice";
@@ -125,7 +129,7 @@ export default async function MatchDetailPage({
               label={stageLabel(match.stage, match.group)}
             />
             <span className="body body-size-small text-[color:var(--color-text-secondary)]">
-              {formatKickoff(match.kickoff)}
+              <LocalKickoff date={match.kickoff} />
             </span>
           </div>
         </CardHeader>
@@ -175,6 +179,11 @@ export default async function MatchDetailPage({
             </p>
           )}
 
+          {!locked && (
+            <div className="flex justify-center mb-3">
+              <SubmissionDeadline deadline={match.kickoff} />
+            </div>
+          )}
           <PredictionForm
             matchId={match.id}
             initial={prediction}

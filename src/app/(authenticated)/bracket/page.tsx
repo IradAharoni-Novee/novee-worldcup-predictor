@@ -11,11 +11,12 @@ import {
   BracketPredictorForm,
   type Team,
 } from "@/components/predictor/bracket-predictor-form";
+import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import {
   resolveR32Slots,
   type GroupPickLookup,
 } from "@/lib/bracket-seeding";
-import { isBracketLocked } from "@/lib/locks";
+import { getBracketLockTime, isBracketLocked } from "@/lib/locks";
 import { getScoringConfig } from "@/lib/leaderboard";
 import {
   KNOCKOUT_STAGES,
@@ -47,6 +48,7 @@ export default async function BracketPage() {
     bracketPicks,
     knockoutMatches,
     locked,
+    lockTime,
   ] = await Promise.all([
     prisma.team.findMany({ select: { id: true, name: true, code: true, flag: true } }),
     prisma.groupPrediction.findMany({ where: { userId } }),
@@ -74,6 +76,7 @@ export default async function BracketPage() {
       },
     }),
     isBracketLocked(),
+    getBracketLockTime(),
   ]);
 
   const teamsById = Object.fromEntries(teams.map((t) => [t.id, t])) as Record<
@@ -133,10 +136,13 @@ export default async function BracketPage() {
           </p>
         </Card>
       )}
-      <p className="body body-size-medium text-[color:var(--color-text-secondary)] mb-3">
-        Click a team to mark them as winner of that match. Winners advance to
-        the next round.
-      </p>
+      <div className="mb-3 flex flex-col gap-1">
+        <p className="body body-size-medium text-[color:var(--color-text-secondary)]">
+          Click a team to mark them as winner of that match. Winners advance to
+          the next round.
+        </p>
+        {lockTime && <SubmissionDeadline deadline={lockTime} />}
+      </div>
       <WideBleed>
         <BracketPredictorForm
           teamsById={teamsById}

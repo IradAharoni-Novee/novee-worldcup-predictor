@@ -5,11 +5,12 @@ import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
 import { GroupPredictorForm } from "@/components/predictor/group-predictor-form";
+import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import { computeGroupStandings } from "@/lib/group-standings";
 import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { getGroupLockTimes } from "@/lib/locks";
-import { isLocked, formatKickoff } from "@/lib/format";
+import { isLocked } from "@/lib/format";
 
 const POSITION_LABELS = ["1st", "2nd", "3rd", "4th"];
 
@@ -93,9 +94,12 @@ export default async function GroupPredictionPage({
           </div>
         </Card>
       ) : (
-        <p className="body body-size-medium text-[color:var(--color-text-secondary)] mb-3">
-          Predictions lock at first kickoff{lock ? `: ${formatKickoff(lock)}` : ""}.
-        </p>
+        <div className="mb-3 flex flex-col gap-1">
+          <p className="body body-size-medium text-[color:var(--color-text-secondary)]">
+            Predictions lock at this group&apos;s first kickoff.
+          </p>
+          {lock && <SubmissionDeadline deadline={lock} />}
+        </div>
       )}
 
       {!locked && (
