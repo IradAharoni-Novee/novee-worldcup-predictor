@@ -3,7 +3,7 @@
 // Run with: pnpm exec tsx prisma/backfill-slack-photos.ts
 
 import { prisma } from "@/lib/prisma";
-import { fetchSlackProfile } from "@/lib/slack";
+import { syncSlackProfile } from "@/lib/sync-slack-profile";
 
 async function main() {
   if (!process.env.SLACK_BOT_TOKEN) {
@@ -20,7 +20,7 @@ async function main() {
         { email: { startsWith: "chatgpt" } },
       ],
     },
-    select: { id: true, email: true, name: true, image: true },
+    select: { id: true, email: true },
   });
 
   console.log(`Looking up ${users.length} users in Slack…\n`);
@@ -29,24 +29,22 @@ async function main() {
   let unchanged = 0;
   let missing = 0;
   for (const u of users) {
-    const profile = await fetchSlackProfile(u.email);
-    if (!profile) {
+    const result = await syncSlackProfile(u.id, u.email);
+    if (!result) {
       console.log(`  · ${u.email}  — not found in Slack`);
       missing++;
       continue;
     }
-    const data: { image?: string; name?: string } = {};
-    if (profile.image && profile.image !== u.image) data.image = profile.image;
-    if (profile.name && profile.name !== u.name) data.name = profile.name;
-    if (Object.keys(data).length === 0) {
+    if (result.changed.length === 0) {
       console.log(`  = ${u.email}  — already up to date`);
       unchanged++;
       continue;
     }
-    await prisma.user.update({ where: { id: u.id }, data });
     const bits = [
-      data.name ? `name=${data.name}` : null,
-      data.image ? `image=…${data.image.slice(-20)}` : null,
+      result.changed.includes("name") ? `name=${result.profile.name}` : null,
+      result.changed.includes("image")
+        ? `image=…${result.profile.image?.slice(-20)}`
+        : null,
     ].filter(Boolean);
     console.log(`  ✓ ${u.email}  — ${bits.join(", ")}`);
     updated++;

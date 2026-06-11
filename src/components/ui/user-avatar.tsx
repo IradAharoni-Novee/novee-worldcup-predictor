@@ -1,3 +1,4 @@
+import { AvatarImage } from "@/components/ui/avatar-image";
 import { cn } from "@/lib/cn";
 
 // AI player avatars are static SVG files in /public/avatars. Keyed by email
@@ -62,22 +63,8 @@ export function UserAvatar({
       />
     );
   }
-  // Real photo (typically from Slack) trumps initials.
-  if (image) {
-    return (
-      <img
-        src={image}
-        alt={name ?? email}
-        width={size}
-        height={size}
-        className={cn("rounded-full object-cover", className)}
-        style={{ width: size, height: size }}
-        loading="lazy"
-      />
-    );
-  }
   const { bg, fg } = pickColor(email);
-  return (
+  const fallback = (
     <div
       className={cn(
         "rounded-full grid place-items-center font-medium tabular-nums",
@@ -95,4 +82,18 @@ export function UserAvatar({
       {initials(name, email)}
     </div>
   );
+  // Real photo (typically from Slack) trumps initials, but a broken URL falls
+  // back to initials instead of the browser's broken-image icon.
+  if (image) {
+    return (
+      <AvatarImage
+        src={image}
+        alt={name ?? email}
+        size={size}
+        className={className}
+        fallback={fallback}
+      />
+    );
+  }
+  return fallback;
 }
