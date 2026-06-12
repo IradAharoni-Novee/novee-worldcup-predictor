@@ -171,6 +171,15 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// One materialised leaderboard per day. Match results are updated in place, so
+// a past day's standings can't be recomputed after the fact — they're captured
+// here by the daily reminder cron and served back through ?d= on the card.
+model LeaderboardSnapshot {
+  date      String   @id // "YYYY-MM-DD" (UTC), matches the reminder cron's dateKey
+  data      Json // full LeaderboardRow[] as computed by getLeaderboard()
+  createdAt DateTime @default(now())
+}
+
 model GroupPrediction {
   id          String   @id @default(cuid())
   userId      String

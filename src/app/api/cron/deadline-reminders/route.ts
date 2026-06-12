@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { postSlackMessage } from "@/lib/slack";
 import { withRetry } from "@/lib/retry";
+import { captureLeaderboardSnapshot } from "@/lib/leaderboard-snapshots";
 import {
   buildReminderMessage,
   collectDailyDeadlines,
@@ -39,6 +40,11 @@ async function handle(req: Request) {
 
   const now = new Date();
   const dateKey = now.toISOString().slice(0, 10);
+
+  // Freeze today's standings before anything can early-return, so every day the
+  // cron fires gets a snapshot the card can serve back via ?d=${dateKey} — even
+  // on days with no reminder to post.
+  await withRetry(() => captureLeaderboardSnapshot(dateKey), DB_RETRY);
 
   const lastPosted = await withRetry(
     () => prisma.setting.findUnique({ where: { key: LAST_POSTED_KEY } }),
@@ -79,8 +85,8 @@ async function handle(req: Request) {
 
   const message = buildReminderMessage(deadlines, {
     appUrl: APP_URL,
-    // Date param busts Slack's image cache so each day's post re-fetches the
-    // card with the live leaderboard.
+    // Date param selects today's frozen snapshot (captured above) and doubles
+    // as a per-day cache key so Slack re-fetches the card for each new post.
     imageUrl: `${APP_URL}/api/reminder-card?d=${dateKey}`,
   });
   if (!message) {
