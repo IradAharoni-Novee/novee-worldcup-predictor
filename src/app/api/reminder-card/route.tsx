@@ -2,6 +2,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { getLeaderboard } from "@/lib/leaderboard";
+import {
+  getLeaderboardSnapshot,
+  isSnapshotDateParam,
+} from "@/lib/leaderboard-snapshots";
 import { withRetry } from "@/lib/retry";
 
 export const runtime = "nodejs";
@@ -18,14 +22,25 @@ function displayName(name: string | null, email: string): string {
   return label.length > 22 ? `${label.slice(0, 21)}…` : label;
 }
 
-export async function GET() {
+async function loadTop3(dateParam: string | null) {
+  // A valid ?d= with a stored snapshot renders that day's frozen standings.
+  // Anything else — no/malformed date, or a date never snapshotted (old posts,
+  // ad-hoc loads) — falls back to the live leaderboard.
+  if (isSnapshotDateParam(dateParam)) {
+    const snapshot = await withRetry(() => getLeaderboardSnapshot(dateParam));
+    if (snapshot) return snapshot.slice(0, 3);
+  }
+  return (await withRetry(() => getLeaderboard())).slice(0, 3);
+}
+
+export async function GET(req: Request) {
   // Read from disk rather than fetching over HTTP — a self-request 401s on
   // protected preview deployments.
   const bg = await readFile(
     path.join(process.cwd(), "public", "reminder-card-bg.jpg")
   );
   const bgSrc = `data:image/jpeg;base64,${bg.toString("base64")}`;
-  const top3 = (await withRetry(() => getLeaderboard())).slice(0, 3);
+  const top3 = await loadTop3(new URL(req.url).searchParams.get("d"));
 
   return new ImageResponse(
     (
