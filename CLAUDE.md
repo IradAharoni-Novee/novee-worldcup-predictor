@@ -95,7 +95,7 @@ Vitest covers the pure scoring/seeding/standings logic (`tests/*.test.ts`). Ther
 
 ## Env
 
-Required: `DATABASE_URL`, `AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `FOOTBALL_DATA_TOKEN`, `CRON_SECRET`.
+Required: `DATABASE_URL`, `AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, `FOOTBALL_DATA_TOKEN`, `CRON_SECRET`, `API_FOOTBALL_KEY` (api-sports.io; powers the per-minute live-score sync at `/api/live-scores` — football-data.org lags in-play matches too much to use live).
 Optional: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (Google OAuth — without them the "Continue with Google" button on `/signin` will error); `SLACK_BOT_TOKEN` (+ `SLACK_EMAIL_DOMAINS` fallback list) for first-sign-in profile lookup.
 
 When changing the schema, always create a Prisma migration with `pnpm prisma:migrate`. Vercel runs the `vercel-build` script (`prisma migrate deploy && prisma generate && next build`) for every deploy — preview branches and prod — so any committed migration is applied to whichever DB the build's `DATABASE_URL` points at. The Neon–Vercel integration provisions an ephemeral Neon branch per Vercel preview and injects `DATABASE_URL` + `DATABASE_URL_UNPOOLED`; production maps to Neon's default branch (`main`).

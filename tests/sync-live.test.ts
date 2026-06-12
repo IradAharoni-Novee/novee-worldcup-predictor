@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MatchStatus } from "@prisma/client";
-import { mapApiFootballStatus, pickFixture } from "@/lib/sync";
+import { mapApiFootballStatus, pickFixture, reconcileScore } from "@/lib/sync";
 import type { AfFixture } from "@/lib/api-football";
 
 function fixture(overrides: Partial<AfFixture>): AfFixture {
@@ -72,5 +72,59 @@ describe("pickFixture", () => {
   it("returns null when no team names match", () => {
     const f = pickFixture(match, [fixture({ homeName: "Brazil", awayName: "Croatia" })]);
     expect(f).toBeNull();
+  });
+
+  it("matches when one team's name differs between providers", () => {
+    // football-data.org says "Czechia"; API-Football says "Czech Republic".
+    const korea = {
+      id: "m2",
+      kickoff: new Date("2026-06-12T02:00:00Z"),
+      homeName: "South Korea",
+      awayName: "Czechia",
+    };
+    const f = pickFixture(korea, [
+      fixture({
+        fixtureId: 99,
+        date: "2026-06-12T02:00:00+00:00",
+        homeName: "South Korea",
+        awayName: "Czech Republic",
+      }),
+    ]);
+    expect(f?.fixtureId).toBe(99);
+  });
+
+  it("does not single-team-match when two fixtures share the same kickoff", () => {
+    // Both names differ and two matches kick off together: refuse to guess.
+    const f = pickFixture(match, [
+      fixture({ fixtureId: 1, homeName: "Mexico", awayName: "Korea Republic" }),
+      fixture({ fixtureId: 2, homeName: "Brazil", awayName: "South Africa" }),
+    ]);
+    expect(f).toBeNull();
+  });
+});
+
+describe("reconcileScore", () => {
+  const live = { status: MatchStatus.LIVE, home: 1, away: 1 };
+  const finished = { status: MatchStatus.FINISHED, home: 2, away: 0 };
+  const fdNothing = { status: MatchStatus.SCHEDULED, home: null, away: null };
+
+  it("takes the incoming value for a brand-new match", () => {
+    expect(reconcileScore(finished, null)).toEqual(finished);
+  });
+
+  it("keeps the existing live score when FD still reports nothing", () => {
+    expect(reconcileScore(fdNothing, live)).toEqual(live);
+  });
+
+  it("keeps a finished result when FD still reports nothing", () => {
+    expect(reconcileScore(fdNothing, finished)).toEqual(finished);
+  });
+
+  it("accepts FD once it carries a score", () => {
+    expect(reconcileScore(finished, live)).toEqual(finished);
+  });
+
+  it("does not block a fresh scheduled match with no progress yet", () => {
+    expect(reconcileScore(fdNothing, fdNothing)).toEqual(fdNothing);
   });
 });

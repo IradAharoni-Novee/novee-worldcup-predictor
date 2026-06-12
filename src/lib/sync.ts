@@ -90,32 +90,42 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   });
   const teamIdByFd = new Map(allTeams.map((t) => [t.fdId, t.id]));
 
+  // Current score/status per match, so a lagging FD feed can't overwrite scores
+  // the per-minute live sync already wrote (see reconcileScore).
+  const existing = await prisma.match.findMany({
+    where: { fdId: { in: matches.map((m) => m.id) } },
+    select: { fdId: true, status: true, homeScore: true, awayScore: true },
+  });
+  const existingByFd = new Map(existing.map((m) => [m.fdId, m]));
+
   for (const m of matches) {
     const homeId = m.homeTeam?.id ? teamIdByFd.get(m.homeTeam.id) ?? null : null;
     const awayId = m.awayTeam?.id ? teamIdByFd.get(m.awayTeam.id) ?? null : null;
+    const prev = existingByFd.get(m.id);
+    const score = reconcileScore(
+      {
+        status: mapStatus(m.status),
+        home: m.score.fullTime.home,
+        away: m.score.fullTime.away,
+      },
+      prev
+        ? { status: prev.status, home: prev.homeScore, away: prev.awayScore }
+        : null
+    );
+    const fields = {
+      stage: mapStage(m.stage),
+      group: groupCode(m.group),
+      kickoff: new Date(m.utcDate),
+      homeTeamId: homeId,
+      awayTeamId: awayId,
+      homeScore: score.home,
+      awayScore: score.away,
+      status: score.status,
+    };
     await prisma.match.upsert({
       where: { fdId: m.id },
-      create: {
-        fdId: m.id,
-        stage: mapStage(m.stage),
-        group: groupCode(m.group),
-        kickoff: new Date(m.utcDate),
-        homeTeamId: homeId,
-        awayTeamId: awayId,
-        homeScore: m.score.fullTime.home,
-        awayScore: m.score.fullTime.away,
-        status: mapStatus(m.status),
-      },
-      update: {
-        stage: mapStage(m.stage),
-        group: groupCode(m.group),
-        kickoff: new Date(m.utcDate),
-        homeTeamId: homeId,
-        awayTeamId: awayId,
-        homeScore: m.score.fullTime.home,
-        awayScore: m.score.fullTime.away,
-        status: mapStatus(m.status),
-      },
+      create: { fdId: m.id, ...fields },
+      update: fields,
     });
   }
 
@@ -148,22 +158,59 @@ export function mapApiFootballStatus(short: string): MatchStatus | null {
 
 type LiveMatch = { id: string; kickoff: Date; homeName: string; awayName: string };
 
-// Pair a DB match with the API-Football fixture at the same kickoff minute,
-// confirming team names (diacritic-insensitive, either orientation) so two
-// matches kicking off simultaneously aren't confused.
+// Pair a DB match with the API-Football fixture at the same kickoff minute.
+// Providers disagree on some country names — football-data.org says "Czechia"
+// where API-Football says "Czech Republic", "IR Iran" vs "Iran", etc. — so an
+// exact two-name match isn't always possible. Prefer a fixture where both teams
+// match (diacritic-insensitive, either orientation); otherwise accept one that
+// matches on a single team, but only when it's the sole same-minute fixture
+// sharing a team, so two matches kicking off simultaneously are never confused.
 export function pickFixture(match: LiveMatch, fixtures: AfFixture[]): AfFixture | null {
   const minute = isoMinute(match.kickoff);
   const home = normaliseName(match.homeName);
   const away = normaliseName(match.awayName);
+
+  const bothMatch: AfFixture[] = [];
+  const oneMatches: AfFixture[] = [];
   for (const f of fixtures) {
     if (isoMinute(f.date) !== minute) continue;
     const fHome = normaliseName(f.homeName);
     const fAway = normaliseName(f.awayName);
-    if ((fHome === home && fAway === away) || (fHome === away && fAway === home)) {
-      return f;
-    }
+    const homeHit = home !== "" && (fHome === home || fAway === home);
+    const awayHit = away !== "" && (fHome === away || fAway === away);
+    if (homeHit && awayHit) bothMatch.push(f);
+    else if (homeHit || awayHit) oneMatches.push(f);
   }
-  return null;
+
+  if (bothMatch.length === 1) return bothMatch[0]!;
+  if (bothMatch.length > 1) return null; // ambiguous — never guess on scores
+  return oneMatches.length === 1 ? oneMatches[0]! : null;
+}
+
+type ScoreState = {
+  status: MatchStatus;
+  home: number | null;
+  away: number | null;
+};
+
+// Decide which score/status the daily football-data.org sync should persist.
+// FD's free tier can still report a match as not-started with no score long
+// after kickoff (it reported the World Cup opener as TIMED a day later), while
+// the per-minute API-Football live sync has already written the real result.
+// Don't let the lagging feed clobber fresher data: keep what we have whenever FD
+// brings nothing new. FD still wins once it carries a score or a non-scheduled
+// status, so a genuine correction propagates.
+export function reconcileScore(incoming: ScoreState, existing: ScoreState | null): ScoreState {
+  if (!existing) return incoming;
+  const incomingHasNothing =
+    incoming.status === MatchStatus.SCHEDULED &&
+    incoming.home === null &&
+    incoming.away === null;
+  const existingHasProgress =
+    existing.status !== MatchStatus.SCHEDULED ||
+    existing.home !== null ||
+    existing.away !== null;
+  return incomingHasNothing && existingHasProgress ? existing : incoming;
 }
 
 // Per-minute live-score sync. Pulls current scores + status from API-Football

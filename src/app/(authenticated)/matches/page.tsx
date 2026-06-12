@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { scorePrediction } from "@/lib/scoring";
 import { isMatchLive } from "@/lib/format";
+import { withRetry } from "@/lib/retry";
 import { veeveeLine } from "@/lib/veevee-voice";
 
 type Filter = "upcoming" | "live" | "finished";
@@ -19,19 +20,21 @@ export default async function MatchesPage({
   const session = await auth();
   const userId = session?.user?.id;
 
-  const matches = await prisma.match.findMany({
-    orderBy: { kickoff: "asc" },
-    include: {
-      homeTeam: { select: { name: true, code: true, flag: true } },
-      awayTeam: { select: { name: true, code: true, flag: true } },
-      predictions: userId
-        ? {
-            where: { userId },
-            select: { homeScore: true, awayScore: true, note: true },
-          }
-        : false,
-    },
-  });
+  const matches = await withRetry(() =>
+    prisma.match.findMany({
+      orderBy: { kickoff: "asc" },
+      include: {
+        homeTeam: { select: { name: true, code: true, flag: true } },
+        awayTeam: { select: { name: true, code: true, flag: true } },
+        predictions: userId
+          ? {
+              where: { userId },
+              select: { homeScore: true, awayScore: true, note: true },
+            }
+          : false,
+      },
+    })
+  );
 
   const now = new Date();
   const buckets: Record<Filter, typeof matches> = {

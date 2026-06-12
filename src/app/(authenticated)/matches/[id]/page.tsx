@@ -16,6 +16,7 @@ import {
 import { PageContainer } from "@/components/shell/page-container";
 import { cn } from "@/lib/cn";
 import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
+import { withRetry } from "@/lib/retry";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
 import { veeveeLine } from "@/lib/veevee-voice";
@@ -47,14 +48,16 @@ export default async function MatchDetailPage({
   const session = await auth();
   const userId = session!.user.id;
 
-  const match = await prisma.match.findUnique({
-    where: { id },
-    include: {
-      homeTeam: { select: { name: true, code: true, flag: true } },
-      awayTeam: { select: { name: true, code: true, flag: true } },
-      predictions: { where: { userId } },
-    },
-  });
+  const match = await withRetry(() =>
+    prisma.match.findUnique({
+      where: { id },
+      include: {
+        homeTeam: { select: { name: true, code: true, flag: true } },
+        awayTeam: { select: { name: true, code: true, flag: true } },
+        predictions: { where: { userId } },
+      },
+    })
+  );
   if (!match) notFound();
 
   const prediction = match.predictions[0] ?? null;
@@ -83,27 +86,29 @@ export default async function MatchDetailPage({
   // After kickoff, surface everyone's hot takes (anonymized) and the pick
   // histogram. Hot takes skip the current user's note since it's shown above
   // in the locked summary.
-  const [hotTakes, aggregates] = await Promise.all([
-    locked
-      ? prisma.prediction.findMany({
-          where: {
-            matchId: id,
-            note: { not: null },
-            userId: { not: userId },
-          },
-          select: {
-            id: true,
-            note: true,
-            homeScore: true,
-            awayScore: true,
-          },
-          take: 50,
-        })
-      : Promise.resolve([]),
-    locked
-      ? getPickAggregates(id)
-      : Promise.resolve({ total: 0, buckets: [] }),
-  ]);
+  const [hotTakes, aggregates] = await withRetry(() =>
+    Promise.all([
+      locked
+        ? prisma.prediction.findMany({
+            where: {
+              matchId: id,
+              note: { not: null },
+              userId: { not: userId },
+            },
+            select: {
+              id: true,
+              note: true,
+              homeScore: true,
+              awayScore: true,
+            },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      locked
+        ? getPickAggregates(id)
+        : Promise.resolve({ total: 0, buckets: [] }),
+    ])
+  );
 
   const consensusForUser =
     prediction && aggregates.buckets[0]
