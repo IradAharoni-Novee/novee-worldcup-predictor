@@ -1,4 +1,5 @@
 import { Trophy } from "lucide-react";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -84,7 +85,10 @@ export default async function LeaderboardPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                      href={me ? "/me" : `/u/${row.userId}`}
+                      className="flex items-center gap-3 min-w-0 hover:underline"
+                    >
                       <LeaderboardAvatar
                         email={row.email}
                         name={row.name}
@@ -103,7 +107,7 @@ export default async function LeaderboardPage() {
                           {row.email}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-right code code-size-large tabular-nums">
                     <Odometer
