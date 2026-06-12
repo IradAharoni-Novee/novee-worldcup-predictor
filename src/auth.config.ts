@@ -7,6 +7,7 @@ const PROTECTED_PREFIXES = [
   "/me",
   "/admin",
   "/ctf",
+  "/u",
 ];
 
 // Edge-safe Auth.js config (no providers, no DB adapter, no Node-only imports).
