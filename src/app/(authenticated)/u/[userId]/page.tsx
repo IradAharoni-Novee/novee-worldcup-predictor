@@ -19,9 +19,9 @@ import {
   scoreAwards,
 } from "@/lib/scoring-awards";
 import {
+  getAwardsLockTime,
   getBracketLockTime,
   getGroupLockTimes,
-  getTournamentLockTime,
 } from "@/lib/locks";
 import {
   isAwardsRevealed,
@@ -71,7 +71,7 @@ export default async function UserProfilePage({
     actualGbSetting,
     groupLockTimes,
     bracketLockTime,
-    tournamentLockTime,
+    awardsLockTime,
   ] = await Promise.all([
     getLeaderboard(),
     prisma.prediction.findMany({
@@ -140,7 +140,7 @@ export default async function UserProfilePage({
     prisma.setting.findUnique({ where: { key: SETTING_KEY_ACTUAL_GOLDEN_BOOT } }),
     getGroupLockTimes(),
     getBracketLockTime(),
-    getTournamentLockTime(),
+    getAwardsLockTime(),
   ]);
 
   const displayName = user.name ?? user.email.split("@")[0];
@@ -154,7 +154,7 @@ export default async function UserProfilePage({
   const actualGoldenBootPlayerId =
     typeof actualGbSetting?.value === "string" ? actualGbSetting.value : null;
 
-  const awardsRevealed = isAwardsRevealed(tournamentLockTime, now);
+  const awardsRevealed = isAwardsRevealed(awardsLockTime, now);
   const awardsScore = scoreAwards(
     {
       winnerTeamId: winnerPick?.teamId ?? null,

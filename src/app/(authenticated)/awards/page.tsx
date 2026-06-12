@@ -12,8 +12,8 @@ import {
 import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
 import {
-  getTournamentLockTime,
-  isTournamentLocked,
+  getAwardsLockTime,
+  isAwardsLocked,
 } from "@/lib/locks";
 import { getScoringConfig } from "@/lib/leaderboard";
 import {
@@ -55,8 +55,8 @@ export default async function AwardsPage() {
     }),
     prisma.tournamentWinnerPrediction.findUnique({ where: { userId } }),
     prisma.goldenBootPrediction.findUnique({ where: { userId } }),
-    getTournamentLockTime(),
-    isTournamentLocked(),
+    getAwardsLockTime(),
+    isAwardsLocked(),
     prisma.setting.findUnique({ where: { key: SETTING_KEY_ACTUAL_WINNER } }),
     prisma.setting.findUnique({ where: { key: SETTING_KEY_ACTUAL_GOLDEN_BOOT } }),
   ]);
@@ -115,9 +115,9 @@ export default async function AwardsPage() {
           <div className="min-w-0">
             <p className="body body-size-small text-[color:var(--color-text-secondary)]">
               {locked
-                ? "Tournament has started — picks are locked"
+                ? "Picks are locked — the deadline has passed"
                 : lockTime
-                  ? "Picks lock at the tournament's first kickoff"
+                  ? "Picks lock at the deadline below"
                   : "No fixtures scheduled yet"}
             </p>
             <p className="heading text-lg">
