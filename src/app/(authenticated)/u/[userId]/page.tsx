@@ -239,7 +239,7 @@ export default async function UserProfilePage({
 
       <Section title="Tournament awards">
         {!awardsRevealed ? (
-          <EmptyHint>Hidden until the tournament kicks off.</EmptyHint>
+          <EmptyHint>Hidden until the awards deadline passes.</EmptyHint>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             <Card className="py-3 px-4 gap-2">
