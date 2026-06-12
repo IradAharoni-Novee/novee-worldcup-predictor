@@ -2,10 +2,11 @@
 // Production seed:
 //   - default scoring config in the Setting table
 //   - real fixtures, teams, and matches from football-data.org
-//   - three "AI" players whose predictions actually reflect their identity:
-//       · Opus 4.7  → calls anthropic/claude-opus-4-7 via Vercel AI Gateway
-//       · GPT 5.5   → calls openai/gpt-5.5 via Vercel AI Gateway
-//       · VeeVee's Cousin → rule: 0-0 on every match, no other picks
+//   - four seeded non-human players whose predictions reflect their identity:
+//       · Opus 4.8         → calls anthropic/claude-opus-4-8 via Vercel AI Gateway
+//       · GPT 5.5          → calls openai/gpt-5.5 via Vercel AI Gateway
+//       · Gemini 3.5 Flash → calls google/gemini-3.5-flash via Vercel AI Gateway
+//       · VeeVee's Cousin  → rule: 0-0 on every match, no other picks
 //
 // Idempotent at the schema/upsert level, but the LLM-generated values will
 // drift across runs. Set AI_GATEWAY_API_KEY before invoking (`vercel env pull`
@@ -31,7 +32,7 @@ type LlmPlayer = {
 const LLM_PLAYERS: LlmPlayer[] = [
   {
     email: AI_PLAYER_EMAILS.opus,
-    name: "Opus 4.7",
+    name: "Opus 4.8",
     kind: "opus",
     modelId: AI_PLAYER_MODEL_IDS.opus,
   },
@@ -460,8 +461,9 @@ async function main() {
     !!process.env.AI_GATEWAY_API_KEY || !!process.env.VERCEL_OIDC_TOKEN;
   if (LLM_PLAYERS.length > 0 && !hasGatewayAuth) {
     throw new Error(
-      "No Vercel AI Gateway credentials found. The Opus 4.7 and GPT 5.5 seeded " +
-        "players call their models through the gateway, which needs either " +
+      "No Vercel AI Gateway credentials found. The Opus 4.8, GPT 5.5, and " +
+        "Gemini 3.5 Flash seeded players call their models through the gateway, " +
+        "which needs either " +
         "AI_GATEWAY_API_KEY or a fresh VERCEL_OIDC_TOKEN. Run `vercel env pull` " +
         "(writes a short-lived OIDC token to .env.local) before re-running the seed."
     );
