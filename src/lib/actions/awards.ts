@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isTournamentLocked } from "@/lib/locks";
+import { isAwardsLocked } from "@/lib/locks";
 import {
   SETTING_KEY_ACTUAL_GOLDEN_BOOT,
   SETTING_KEY_ACTUAL_WINNER,
@@ -26,8 +26,8 @@ export async function submitWinnerPrediction(
   const parsed = winnerSchema.safeParse({ teamId: formData.get("teamId") });
   if (!parsed.success) return { ok: false, error: "Please pick a team." };
 
-  if (await isTournamentLocked()) {
-    return { ok: false, error: "Predictions are locked — the tournament has started." };
+  if (await isAwardsLocked()) {
+    return { ok: false, error: "Predictions are locked — the deadline has passed." };
   }
 
   const team = await prisma.team.findUnique({ where: { id: parsed.data.teamId } });
@@ -55,8 +55,8 @@ export async function submitGoldenBootPrediction(
   const parsed = goldenBootSchema.safeParse({ playerId: formData.get("playerId") });
   if (!parsed.success) return { ok: false, error: "Please pick a player." };
 
-  if (await isTournamentLocked()) {
-    return { ok: false, error: "Predictions are locked — the tournament has started." };
+  if (await isAwardsLocked()) {
+    return { ok: false, error: "Predictions are locked — the deadline has passed." };
   }
 
   const player = await prisma.player.findUnique({ where: { id: parsed.data.playerId } });
