@@ -14,6 +14,7 @@ import {
   SubmissionDeadline,
 } from "@/components/predictor/submission-deadline";
 import { PageContainer } from "@/components/shell/page-container";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
 import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
 import { withRetry } from "@/lib/retry";
@@ -83,9 +84,9 @@ export default async function MatchDetailPage({
         })
       : null;
 
-  // After kickoff, surface everyone's hot takes (anonymized) and the pick
-  // histogram. Hot takes skip the current user's note since it's shown above
-  // in the locked summary.
+  // After kickoff, surface everyone's hot takes (attributed to their authors)
+  // and the pick histogram. Hot takes skip the current user's note since it's
+  // shown above in the locked summary.
   const [hotTakes, aggregates] = await withRetry(() =>
     Promise.all([
       locked
@@ -100,6 +101,9 @@ export default async function MatchDetailPage({
               note: true,
               homeScore: true,
               awayScore: true,
+              user: {
+                select: { id: true, name: true, image: true, email: true },
+              },
             },
             take: 50,
           })
@@ -275,7 +279,23 @@ export default async function MatchDetailPage({
                 key={t.id}
                 className="rounded-md border border-[color:var(--color-border-secondary)] px-4 py-2 body body-size-small flex items-center justify-between gap-3"
               >
-                <span className="italic">&ldquo;{t.note}&rdquo;</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    href={`/u/${t.user.id}`}
+                    className="flex items-center gap-2 min-w-0 hover:underline shrink-0"
+                  >
+                    <UserAvatar
+                      email={t.user.email}
+                      name={t.user.name}
+                      image={t.user.image}
+                      size={24}
+                    />
+                    <span className="body-weight-medium truncate">
+                      {t.user.name ?? t.user.email.split("@")[0]}
+                    </span>
+                  </Link>
+                  <span className="italic truncate">&ldquo;{t.note}&rdquo;</span>
+                </div>
                 <span className="code code-size-small tabular-nums text-[color:var(--color-text-tertiary)] shrink-0">
                   {t.homeScore}–{t.awayScore}
                 </span>
