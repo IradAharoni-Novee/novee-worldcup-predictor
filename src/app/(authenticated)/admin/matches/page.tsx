@@ -10,7 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MatchResultForm } from "@/components/admin/match-result-form";
-import { formatKickoff, stageLabel } from "@/lib/format";
+import { stageLabel } from "@/lib/format";
+import { LocalKickoff } from "@/components/predictor/submission-deadline";
 
 export default async function AdminMatchesPage() {
   const matches = await prisma.match.findMany({
@@ -41,7 +42,7 @@ export default async function AdminMatchesPage() {
                   {stageLabel(m.stage, m.group)}
                 </TableCell>
                 <TableCell className="body body-size-small text-[color:var(--color-text-secondary)]">
-                  {formatKickoff(m.kickoff)}
+                  <LocalKickoff date={m.kickoff} />
                 </TableCell>
                 <TableCell>{m.homeTeam?.name ?? "TBD"}</TableCell>
                 <TableCell>{m.awayTeam?.name ?? "TBD"}</TableCell>

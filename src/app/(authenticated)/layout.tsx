@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getViewerTimeZone } from "@/lib/timezone";
+import { TimeZoneProvider } from "@/components/providers/timezone-provider";
 import { TopBar } from "@/components/shell/top-bar";
 import { KonamiListener } from "@/components/easter-eggs/konami-listener";
 import { CommandPalette } from "@/components/easter-eggs/command-palette";
@@ -20,17 +22,21 @@ export default async function AuthenticatedLayout({
   });
   if (!me?.passwordHash) redirect("/set-password");
 
+  const timeZone = await getViewerTimeZone();
+
   return (
-    <div className="grid grid-rows-[auto_1fr] grid-cols-[minmax(0,1fr)] min-h-screen">
-      <TopBar
-        userEmail={session.user.email}
-        userName={me.name}
-        userImage={me.image}
-        isAdmin={session.user.isAdmin}
-      />
-      <main className="mx-auto w-full max-w-6xl min-w-0">{children}</main>
-      <KonamiListener />
-      <CommandPalette isAdmin={Boolean(session.user.isAdmin)} />
-    </div>
+    <TimeZoneProvider timeZone={timeZone}>
+      <div className="grid grid-rows-[auto_1fr] grid-cols-[minmax(0,1fr)] min-h-screen">
+        <TopBar
+          userEmail={session.user.email}
+          userName={me.name}
+          userImage={me.image}
+          isAdmin={session.user.isAdmin}
+        />
+        <main className="mx-auto w-full max-w-6xl min-w-0">{children}</main>
+        <KonamiListener />
+        <CommandPalette isAdmin={Boolean(session.user.isAdmin)} />
+      </div>
+    </TimeZoneProvider>
   );
 }
