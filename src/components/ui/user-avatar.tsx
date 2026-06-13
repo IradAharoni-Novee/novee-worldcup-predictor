@@ -1,14 +1,6 @@
 import { AvatarImage } from "@/components/ui/avatar-image";
+import { aiPlayerAvatar } from "@/lib/ai-players";
 import { cn } from "@/lib/cn";
-
-// AI player avatars are static SVG files in /public/avatars. Keyed by email
-// prefix so each seeded bot gets its own brand mark.
-const BOT_AVATAR: ReadonlyArray<{ test: (local: string) => boolean; src: string; label: string }> = [
-  { test: (l) => l.startsWith("opus-") || l.startsWith("claude"), src: "/avatars/anthropic.svg", label: "Anthropic" },
-  { test: (l) => l.startsWith("gpt-") || l.startsWith("chatgpt"), src: "/avatars/openai.svg", label: "OpenAI" },
-  { test: (l) => l.startsWith("gemini-"), src: "/avatars/gemini.svg", label: "Google Gemini" },
-  { test: (l) => l.startsWith("veevees-cousin"), src: "/avatars/cousin.svg", label: "VeeVee's Cousin" },
-];
 
 // Subtle deterministic color picker for human initials avatars
 const PALETTE = [
@@ -48,13 +40,12 @@ export function UserAvatar({
   size?: number;
   className?: string;
 }) {
-  const local = email.toLowerCase();
   // AI bots always render their brand mark, regardless of any DB image.
-  const bot = BOT_AVATAR.find((b) => b.test(local));
+  const bot = aiPlayerAvatar(email);
   if (bot) {
     return (
       <img
-        src={bot.src}
+        src={`/avatars/${bot.file}`}
         alt={bot.label}
         width={size}
         height={size}
