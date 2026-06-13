@@ -7,10 +7,13 @@
 //       · GPT 5.5          → calls openai/gpt-5.5 via Vercel AI Gateway
 //       · Gemini 3.5 Flash → calls google/gemini-3.5-flash via Vercel AI Gateway
 //       · VeeVee's Cousin  → rule: 0-0 on every match, no other picks
+//   Each gets a brand-mark avatar rendered to PNG and uploaded to Vercel Blob,
+//   stored as User.image so they're treated like any other user downstream.
 //
 // Idempotent at the schema/upsert level, but the LLM-generated values will
-// drift across runs. Set AI_GATEWAY_API_KEY before invoking (`vercel env pull`
-// pulls it into .env.local). Without it, the seed fails fast.
+// drift across runs. Set AI_GATEWAY_API_KEY and BLOB_READ_WRITE_TOKEN before
+// invoking (`vercel env pull` pulls both into .env.local). Without either, the
+// seed fails fast.
 //
 // Player photos are pulled from FIFA's squad API by a separate script:
 // `pnpm tsx prisma/sync-squad-photos.ts`.
@@ -18,6 +21,7 @@
 import { Stage, type Prisma } from "@prisma/client";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { renderAndUploadAiAvatar } from "@/lib/ai-avatar-upload";
 import { AI_PLAYER_EMAILS, AI_PLAYER_MODEL_IDS } from "@/lib/ai-players";
 import { prisma } from "@/lib/prisma";
 import { syncFromFootballData } from "@/lib/sync";
@@ -388,11 +392,11 @@ async function writeAwards(
 
 // ── Players ──────────────────────────────────────────────────────────────
 
-async function upsertUser(email: string, name: string) {
+async function upsertUser(email: string, name: string, image: string) {
   return prisma.user.upsert({
     where: { email },
-    create: { email, name, isAdmin: false, emailVerified: new Date() },
-    update: { name },
+    create: { email, name, image, isAdmin: false, emailVerified: new Date() },
+    update: { name, image },
   });
 }
 
@@ -404,7 +408,9 @@ async function seedLlmPlayer(
   goldenBootCandidates: PlayerRow[]
 ) {
   console.log(`\nSeeding ${player.name} via ${player.modelId}…`);
-  const user = await upsertUser(player.email, player.name);
+  console.log("  · uploading avatar to Vercel Blob…");
+  const image = await renderAndUploadAiAvatar(player.email);
+  const user = await upsertUser(player.email, player.name, image);
 
   console.log("  · predicting match scores…");
   const scores = await aiPredictMatches(player.modelId, matches);
@@ -430,7 +436,8 @@ async function seedLlmPlayer(
 
 async function seedCousin(allMatches: MatchRow[]) {
   console.log(`\nSeeding ${COUSIN_NAME} (rule: 0-0 on every match)…`);
-  const user = await upsertUser(COUSIN_EMAIL, COUSIN_NAME);
+  const image = await renderAndUploadAiAvatar(COUSIN_EMAIL);
+  const user = await upsertUser(COUSIN_EMAIL, COUSIN_NAME, image);
 
   // The 0-0 rule applies to every match — even knockout slots whose teams are
   // still TBD. The cousin's whole gimmick is being right whenever a match
@@ -466,6 +473,13 @@ async function main() {
         "which needs either " +
         "AI_GATEWAY_API_KEY or a fresh VERCEL_OIDC_TOKEN. Run `vercel env pull` " +
         "(writes a short-lived OIDC token to .env.local) before re-running the seed."
+    );
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is not set. The seeded AI players upload their " +
+        "brand-mark avatars to Vercel Blob. Run `vercel env pull` to fetch it."
     );
   }
 

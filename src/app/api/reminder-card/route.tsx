@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
-import { aiPlayerAvatar } from "@/lib/ai-players";
-import { getLeaderboard, type LeaderboardRow } from "@/lib/leaderboard";
+import { getLeaderboard } from "@/lib/leaderboard";
 import {
   getLeaderboardSnapshot,
   isSnapshotDateParam,
@@ -21,21 +20,6 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 function displayName(name: string | null, email: string): string {
   const label = name?.trim() || email.split("@")[0] || "—";
   return label.length > 22 ? `${label.slice(0, 21)}…` : label;
-}
-
-// Satori can't fetch relative URLs, so resolve each avatar to a source it can
-// load: a human's photo is already an absolute URL, while an AI player's brand
-// mark is read from public/avatars and inlined as a data URI (same trick as the
-// background). Null falls back to the initial-letter circle.
-async function avatarSrc(row: LeaderboardRow): Promise<string | null> {
-  const bot = aiPlayerAvatar(row.email);
-  if (bot) {
-    const svg = await readFile(
-      path.join(process.cwd(), "public", "avatars", bot.file)
-    );
-    return `data:image/svg+xml;base64,${svg.toString("base64")}`;
-  }
-  return row.image;
 }
 
 async function loadTop3(dateParam: string | null) {
@@ -57,7 +41,6 @@ export async function GET(req: Request) {
   );
   const bgSrc = `data:image/jpeg;base64,${bg.toString("base64")}`;
   const top3 = await loadTop3(new URL(req.url).searchParams.get("d"));
-  const avatarSrcs = await Promise.all(top3.map(avatarSrc));
 
   return new ImageResponse(
     (
@@ -127,9 +110,9 @@ export async function GET(req: Request) {
                 >
                   {MEDALS[i]}
                 </span>
-                {avatarSrcs[i] ? (
+                {row.image ? (
                   <img
-                    src={avatarSrcs[i]!}
+                    src={row.image}
                     alt=""
                     width={68}
                     height={68}

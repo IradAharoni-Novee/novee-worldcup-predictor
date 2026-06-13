@@ -1,5 +1,4 @@
 import { AvatarImage } from "@/components/ui/avatar-image";
-import { aiPlayerAvatar } from "@/lib/ai-players";
 import { cn } from "@/lib/cn";
 
 // Subtle deterministic color picker for human initials avatars
@@ -40,20 +39,6 @@ export function UserAvatar({
   size?: number;
   className?: string;
 }) {
-  // AI bots always render their brand mark, regardless of any DB image.
-  const bot = aiPlayerAvatar(email);
-  if (bot) {
-    return (
-      <img
-        src={`/avatars/${bot.file}`}
-        alt={bot.label}
-        width={size}
-        height={size}
-        className={cn("rounded-full", className)}
-        style={{ width: size, height: size }}
-      />
-    );
-  }
   const { bg, fg } = pickColor(email);
   const fallback = (
     <div

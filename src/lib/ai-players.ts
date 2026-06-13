@@ -11,10 +11,6 @@ export const AI_PLAYER_EMAILS = {
   cousin: "veevees-cousin@novee.security",
 } as const;
 
-export const AI_PLAYER_EMAIL_SET: ReadonlySet<string> = new Set(
-  Object.values(AI_PLAYER_EMAILS)
-);
-
 export type AiPlayerKind = "opus" | "gpt" | "gemini" | "cousin" | null;
 
 export function aiPlayerKind(email: string | null | undefined): AiPlayerKind {
@@ -28,36 +24,6 @@ export function aiPlayerKind(email: string | null | undefined): AiPlayerKind {
 
 export function isAiPlayer(email: string | null | undefined): boolean {
   return aiPlayerKind(email) !== null;
-}
-
-// Brand-mark avatars for the seeded players, keyed by email local-part prefix
-// so they stay correct on any DB without a stored image or a backfill. Single
-// source of truth shared by the live UI (`UserAvatar`) and the OG reminder
-// card, which load the SVG differently — a public URL in the browser vs. a
-// disk-inlined data URI in Satori — but must agree on which mark each gets.
-const AI_PLAYER_AVATARS: ReadonlyArray<{
-  test: (local: string) => boolean;
-  file: string;
-  label: string;
-}> = [
-  { test: (l) => l.startsWith("opus-") || l.startsWith("claude"), file: "anthropic.svg", label: "Anthropic" },
-  { test: (l) => l.startsWith("gpt-") || l.startsWith("chatgpt"), file: "openai.svg", label: "OpenAI" },
-  { test: (l) => l.startsWith("gemini-"), file: "gemini.svg", label: "Google Gemini" },
-  { test: (l) => l.startsWith("veevees-cousin"), file: "cousin.svg", label: "VeeVee's Cousin" },
-];
-
-/**
- * Brand-mark avatar for a seeded AI player.
- *
- * @returns The SVG filename under `public/avatars/` plus alt text, or null for
- *   human users (who fall back to their photo or initials).
- */
-export function aiPlayerAvatar(
-  email: string | null | undefined
-): { file: string; label: string } | null {
-  if (!email) return null;
-  const local = email.toLowerCase();
-  return AI_PLAYER_AVATARS.find((a) => a.test(local)) ?? null;
 }
 
 // Vercel AI Gateway model IDs for the LLM-backed players. The cousin is
