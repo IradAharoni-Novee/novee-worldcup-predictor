@@ -11,10 +11,6 @@ export const AI_PLAYER_EMAILS = {
   cousin: "veevees-cousin@novee.security",
 } as const;
 
-export const AI_PLAYER_EMAIL_SET: ReadonlySet<string> = new Set(
-  Object.values(AI_PLAYER_EMAILS)
-);
-
 export type AiPlayerKind = "opus" | "gpt" | "gemini" | "cousin" | null;
 
 export function aiPlayerKind(email: string | null | undefined): AiPlayerKind {
