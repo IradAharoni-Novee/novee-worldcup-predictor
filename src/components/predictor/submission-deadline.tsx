@@ -3,12 +3,11 @@
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatKickoff } from "@/lib/format";
+import { useTimeZone } from "@/components/providers/timezone-provider";
 
-// Client components so the hour renders in the viewer's timezone; the
-// server-rendered (server-TZ) text is patched at hydration, which is why the
-// mismatch warning is suppressed.
-export function LocalKickoff({ date }: { date: Date }) {
-  return <span suppressHydrationWarning>{formatKickoff(date)}</span>;
+export function LocalKickoff({ date, className }: { date: Date; className?: string }) {
+  const timeZone = useTimeZone();
+  return <span className={className}>{formatKickoff(date, timeZone)}</span>;
 }
 
 export function SubmissionDeadline({
@@ -20,6 +19,7 @@ export function SubmissionDeadline({
   label?: string;
   className?: string;
 }) {
+  const timeZone = useTimeZone();
   return (
     <span
       className={cn(
@@ -28,8 +28,8 @@ export function SubmissionDeadline({
       )}
     >
       <Clock className="size-3.5 shrink-0" aria-hidden />
-      <span suppressHydrationWarning>
-        {label} {formatKickoff(deadline)}
+      <span>
+        {label} {formatKickoff(deadline, timeZone)}
       </span>
     </span>
   );

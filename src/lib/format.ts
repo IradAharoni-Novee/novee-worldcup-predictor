@@ -1,12 +1,8 @@
-import { format, formatDistanceToNowStrict, isAfter, isBefore } from "date-fns";
+import { isAfter } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
-export function formatKickoff(date: Date): string {
-  return format(date, "EEE d MMM • HH:mm");
-}
-
-export function relativeKickoff(date: Date, now: Date = new Date()): string {
-  if (isBefore(date, now)) return formatDistanceToNowStrict(date, { addSuffix: true });
-  return `in ${formatDistanceToNowStrict(date)}`;
+export function formatKickoff(date: Date, timeZone: string): string {
+  return formatInTimeZone(date, timeZone, "EEE d MMM • HH:mm");
 }
 
 export function isLocked(kickoff: Date, now: Date = new Date()): boolean {

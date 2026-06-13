@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
-import { formatKickoff, isMatchLive, stageLabel } from "@/lib/format";
+import { isMatchLive, stageLabel } from "@/lib/format";
+import { LocalKickoff } from "@/components/predictor/submission-deadline";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { scorePrediction } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/group-standings";
@@ -411,9 +412,10 @@ export default async function MePage() {
                         color="slate"
                         label={stageLabel(p.match.stage, p.match.group)}
                       />
-                      <span className="body body-size-small text-[color:var(--color-text-secondary)]">
-                        {formatKickoff(p.match.kickoff)}
-                      </span>
+                      <LocalKickoff
+                        date={p.match.kickoff}
+                        className="body body-size-small text-[color:var(--color-text-secondary)]"
+                      />
                     </div>
                     <div className="px-4 flex items-center justify-between gap-3">
                       <span className="body body-size-medium truncate">

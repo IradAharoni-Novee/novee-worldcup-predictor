@@ -6,12 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
-import { formatKickoff, stageLabel } from "@/lib/format";
+import { stageLabel } from "@/lib/format";
 import {
   BracketPredictorForm,
   type Team,
 } from "@/components/predictor/bracket-predictor-form";
-import { SubmissionDeadline } from "@/components/predictor/submission-deadline";
+import { LocalKickoff, SubmissionDeadline } from "@/components/predictor/submission-deadline";
 import {
   resolveR32Slots,
   type GroupPickLookup,
@@ -298,9 +298,10 @@ function KnockoutSchedule({ matches }: { matches: ScheduleMatch[] }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 body body-size-small text-[color:var(--color-text-secondary)]">
-                  <span className="text-[color:var(--color-text-tertiary)] shrink-0">
-                    {formatKickoff(m.kickoff)}
-                  </span>
+                  <LocalKickoff
+                    date={m.kickoff}
+                    className="text-[color:var(--color-text-tertiary)] shrink-0"
+                  />
                   {m.venue && (
                     <span className="flex items-start gap-1 min-w-0">
                       <MapPin className="size-3.5 mt-0.5 shrink-0 text-[color:var(--color-text-tertiary)]" />
