@@ -1,4 +1,3 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/shell/page-container";
 import { MatchCard } from "@/components/match/match-card";
 import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
@@ -9,14 +8,7 @@ import { isMatchLive } from "@/lib/format";
 import { withRetry } from "@/lib/retry";
 import { veeveeLine } from "@/lib/veevee-voice";
 
-type Filter = "upcoming" | "live" | "finished";
-
-export default async function MatchesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: Filter }>;
-}) {
-  const { filter = "upcoming" } = await searchParams;
+export default async function MatchesPage() {
   const session = await auth();
   const userId = session?.user?.id;
 
@@ -37,13 +29,9 @@ export default async function MatchesPage({
   );
 
   const now = new Date();
-  const buckets: Record<Filter, typeof matches> = {
-    upcoming: matches.filter(
-      (m) => m.status !== "FINISHED" && !isMatchLive(m.status, m.kickoff, now)
-    ),
-    live: matches.filter((m) => isMatchLive(m.status, m.kickoff, now)),
-    finished: matches.filter((m) => m.status === "FINISHED"),
-  };
+  const hasLiveMatch = matches.some((m) =>
+    isMatchLive(m.status, m.kickoff, now)
+  );
 
   function render(list: typeof matches) {
     if (list.length === 0) {
@@ -93,21 +81,8 @@ export default async function MatchesPage({
 
   return (
     <PageContainer title="Matches">
-      {buckets.live.length > 0 && <LiveScoreRefresher />}
-      <Tabs defaultValue={filter}>
-        <TabsList>
-          <TabsTrigger value="upcoming">
-            Upcoming ({buckets.upcoming.length})
-          </TabsTrigger>
-          <TabsTrigger value="live">Live ({buckets.live.length})</TabsTrigger>
-          <TabsTrigger value="finished">
-            Finished ({buckets.finished.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="upcoming">{render(buckets.upcoming)}</TabsContent>
-        <TabsContent value="live">{render(buckets.live)}</TabsContent>
-        <TabsContent value="finished">{render(buckets.finished)}</TabsContent>
-      </Tabs>
+      {hasLiveMatch && <LiveScoreRefresher />}
+      {render(matches)}
     </PageContainer>
   );
 }
