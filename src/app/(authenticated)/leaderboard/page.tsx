@@ -1,8 +1,11 @@
 import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
+import { LiveBadge } from "@/components/match/live-badge";
+import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
 import { PageContainer } from "@/components/shell/page-container";
 import {
   Table,
@@ -19,7 +22,22 @@ import { Odometer } from "@/components/ui/odometer";
 
 export default async function LeaderboardPage() {
   const session = await auth();
-  const rows = await getLeaderboard();
+  const now = new Date();
+  const [unranked, liveMatch] = await Promise.all([
+    getLeaderboard(),
+    prisma.match.findFirst({
+      where: { status: { not: "FINISHED" }, kickoff: { lte: now } },
+      select: { id: true },
+    }),
+  ]);
+  const isLive = liveMatch !== null;
+
+  // Live points are provisional, so getLeaderboard ranks on confirmed totals.
+  // Here we re-rank on the live total so positions shuffle as goals go in.
+  const rows = [...unranked].sort(
+    (a, b) =>
+      b.total + b.livePoints - (a.total + a.livePoints) || b.exact - a.exact
+  );
 
   if (rows.length === 0) {
     return (
@@ -35,7 +53,8 @@ export default async function LeaderboardPage() {
   }
 
   return (
-    <PageContainer title="Leaderboard">
+    <PageContainer title="Leaderboard" action={isLive ? <LiveBadge /> : undefined}>
+      {isLive && <LiveScoreRefresher />}
       <Card className="p-0 py-0 overflow-hidden">
         <Table>
           <TableHeader>
@@ -110,10 +129,20 @@ export default async function LeaderboardPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-right code code-size-large tabular-nums">
-                    <Odometer
-                      value={row.total}
-                      storageKey={`lb:total:${row.userId}`}
-                    />
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                      <Odometer
+                        value={row.total + row.livePoints}
+                        storageKey={`lb:total:${row.userId}`}
+                      />
+                      {row.livePoints > 0 && (
+                        <Chip
+                          size="small"
+                          color="red"
+                          label={`+${row.livePoints}`}
+                          title={`+${row.livePoints} from live matches`}
+                        />
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums hidden sm:table-cell">
                     {row.matchPoints}

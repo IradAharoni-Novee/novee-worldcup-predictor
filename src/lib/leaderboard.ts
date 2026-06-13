@@ -4,7 +4,8 @@ import {
   scorePrediction,
   type ScoringConfig,
 } from "@/lib/scoring";
-import type { Stage } from "@prisma/client";
+import type { MatchStatus, Stage } from "@prisma/client";
+import { isMatchLive } from "@/lib/format";
 import { computeGroupStandings } from "@/lib/group-standings";
 import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import { computeAdvancers, scoreBracketPicks } from "@/lib/scoring-bracket";
@@ -21,6 +22,7 @@ export type LeaderboardRow = {
   image: string | null;
   total: number;
   matchPoints: number;
+  livePoints: number;
   groupPoints: number;
   bracketPoints: number;
   awardsPoints: number;
@@ -28,6 +30,66 @@ export type LeaderboardRow = {
   outcome: number;
   predictions: number;
 };
+
+type MatchPointsPrediction = {
+  homeScore: number;
+  awayScore: number;
+  match: {
+    stage: Stage;
+    homeScore: number | null;
+    awayScore: number | null;
+    status: MatchStatus;
+    kickoff: Date;
+  };
+};
+
+export type MatchPointsSummary = {
+  matchPoints: number;
+  livePoints: number;
+  exact: number;
+  outcome: number;
+};
+
+/**
+ * Split a user's per-match prediction points into confirmed (finished matches)
+ * and live (in-progress matches scored at their current scoreline — "if the
+ * game ended now"). `exact`/`outcome` count confirmed hits only; live points
+ * stay provisional until the match finishes.
+ */
+export function summarizeMatchPoints(
+  predictions: MatchPointsPrediction[],
+  config: ScoringConfig,
+  now: Date
+): MatchPointsSummary {
+  let matchPoints = 0;
+  let livePoints = 0;
+  let exact = 0;
+  let outcome = 0;
+  for (const p of predictions) {
+    const finished = p.match.status === "FINISHED";
+    const live = !finished && isMatchLive(p.match.status, p.match.kickoff, now);
+    if (!finished && !live) continue;
+    const points = scorePrediction(
+      { homeScore: p.homeScore, awayScore: p.awayScore },
+      {
+        stage: p.match.stage,
+        homeScore: p.match.homeScore,
+        awayScore: p.match.awayScore,
+      },
+      config
+    );
+    if (points === 0) continue;
+    if (!finished) {
+      livePoints += points;
+      continue;
+    }
+    matchPoints += points;
+    const multiplier = p.match.stage !== "GROUP" ? config.knockoutMultiplier : 1;
+    if (points === config.exactScore * multiplier) exact++;
+    else outcome++;
+  }
+  return { matchPoints, livePoints, exact, outcome };
+}
 
 export async function getScoringConfig(): Promise<ScoringConfig> {
   const row = await prisma.setting.findUnique({ where: { key: "scoring" } });
@@ -54,6 +116,7 @@ export async function getScoringConfig(): Promise<ScoringConfig> {
 
 export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   const config = await getScoringConfig();
+  const now = new Date();
 
   const [users, allGroupMatches, knockoutMatches, actualWinnerSetting, actualGbSetting] =
     await Promise.all([
@@ -73,6 +136,7 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
                   homeScore: true,
                   awayScore: true,
                   status: true,
+                  kickoff: true,
                 },
               },
             },
@@ -143,27 +207,11 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   const advancers = computeAdvancers(knockoutMatches);
 
   const rows = users.map<LeaderboardRow>((user) => {
-    let matchPoints = 0;
-    let exact = 0;
-    let outcomeCount = 0;
-    for (const p of user.predictions) {
-      if (p.match.status !== "FINISHED") continue;
-      const points = scorePrediction(
-        { homeScore: p.homeScore, awayScore: p.awayScore },
-        {
-          stage: p.match.stage as Stage,
-          homeScore: p.match.homeScore,
-          awayScore: p.match.awayScore,
-        },
-        config
-      );
-      if (points === 0) continue;
-      matchPoints += points;
-      const multiplier =
-        p.match.stage !== "GROUP" ? config.knockoutMultiplier : 1;
-      if (points === config.exactScore * multiplier) exact++;
-      else outcomeCount++;
-    }
+    const { matchPoints, livePoints, exact, outcome } = summarizeMatchPoints(
+      user.predictions,
+      config,
+      now
+    );
 
     let groupPoints = 0;
     for (const gp of user.groupPredictions) {
@@ -198,12 +246,13 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       email: user.email,
       image: user.image,
       matchPoints,
+      livePoints,
       groupPoints,
       bracketPoints: bracketScore.total,
       awardsPoints: awardsScore.total,
       total: matchPoints + groupPoints + bracketScore.total + awardsScore.total,
       exact,
-      outcome: outcomeCount,
+      outcome,
       predictions: user.predictions.length,
     };
   });
