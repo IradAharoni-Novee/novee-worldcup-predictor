@@ -71,7 +71,7 @@ export default async function LeaderboardPage() {
               <TableHead className="w-12">#</TableHead>
               <TableHead>Player</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right hidden sm:table-cell">Earnings</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Estimated Earnings</TableHead>
               <TableHead className="text-right hidden sm:table-cell">Matches</TableHead>
               <TableHead className="text-right hidden sm:table-cell">Groups</TableHead>
               <TableHead className="text-right hidden md:table-cell">Bracket</TableHead>
