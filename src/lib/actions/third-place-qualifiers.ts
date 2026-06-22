@@ -6,7 +6,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isLocked } from "@/lib/format";
 import { MAX_THIRD_PLACE_QUALIFIERS } from "@/lib/third-place-qualifiers";
-import { cleanupStaleBracketPicks } from "@/lib/bracket-cleanup";
 
 const inputSchema = z.object({
   teamIds: z.array(z.string().min(1)).max(MAX_THIRD_PLACE_QUALIFIERS),
@@ -80,12 +79,7 @@ export async function submitThirdPlaceQualifiers(
     }),
   ]);
 
-  // Bracket picks for teams the user *removed* from the third-place set are
-  // now stale (their team is no longer in their predicted R32). Drop those.
-  await cleanupStaleBracketPicks(userId);
-
   revalidatePath("/groups");
-  revalidatePath("/bracket");
   revalidatePath("/me");
   return { ok: true };
 }

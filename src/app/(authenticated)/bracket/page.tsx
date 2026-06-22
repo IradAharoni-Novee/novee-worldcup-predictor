@@ -12,10 +12,8 @@ import {
   type Team,
 } from "@/components/predictor/bracket-predictor-form";
 import { LocalKickoff, SubmissionDeadline } from "@/components/predictor/submission-deadline";
-import {
-  resolveR32Slots,
-  type GroupPickLookup,
-} from "@/lib/bracket-seeding";
+import { projectR32Slots } from "@/lib/r32-projection";
+import { reconcileBracketPicks } from "@/lib/bracket-validation";
 import { getBracketLockTime, isBracketLocked } from "@/lib/locks";
 import { getScoringConfig } from "@/lib/leaderboard";
 import {
@@ -41,73 +39,46 @@ export default async function BracketPage() {
   const userId = session.user.id;
   const config = await getScoringConfig();
 
-  const [
-    teams,
-    groupPredictions,
-    thirdPlacePicks,
-    bracketPicks,
-    knockoutMatches,
-    locked,
-    lockTime,
-  ] = await Promise.all([
-    prisma.team.findMany({ select: { id: true, name: true, code: true, flag: true } }),
-    prisma.groupPrediction.findMany({ where: { userId } }),
-    prisma.thirdPlaceQualifierPick.findMany({
-      where: { userId },
-      select: { teamId: true },
-    }),
-    prisma.bracketPick.findMany({ where: { userId } }),
-    prisma.match.findMany({
-      where: { stage: { in: ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] } },
-      orderBy: { kickoff: "asc" },
-      select: {
-        id: true,
-        stage: true,
-        kickoff: true,
-        venue: true,
-        city: true,
-        country: true,
-        homeTeamId: true,
-        awayTeamId: true,
-        homeScore: true,
-        awayScore: true,
-        homeTeam: { select: { name: true, code: true, flag: true } },
-        awayTeam: { select: { name: true, code: true, flag: true } },
-      },
-    }),
-    isBracketLocked(),
-    getBracketLockTime(),
-  ]);
+  const [teams, bracketPicks, groupMatches, knockoutMatches, locked, lockTime] =
+    await Promise.all([
+      prisma.team.findMany({ select: { id: true, name: true, code: true, flag: true } }),
+      prisma.bracketPick.findMany({ where: { userId } }),
+      prisma.match.findMany({
+        where: { stage: "GROUP", group: { not: null } },
+        select: {
+          group: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          homeScore: true,
+          awayScore: true,
+        },
+      }),
+      prisma.match.findMany({
+        where: { stage: { in: ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] } },
+        orderBy: { kickoff: "asc" },
+        select: {
+          id: true,
+          stage: true,
+          kickoff: true,
+          venue: true,
+          city: true,
+          country: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          homeScore: true,
+          awayScore: true,
+          homeTeam: { select: { name: true, code: true, flag: true } },
+          awayTeam: { select: { name: true, code: true, flag: true } },
+        },
+      }),
+      isBracketLocked(),
+      getBracketLockTime(),
+    ]);
 
   const teamsById = Object.fromEntries(teams.map((t) => [t.id, t])) as Record<
     string,
     Team
   >;
-
-  const groupPickMap = new Map<string, GroupPickLookup>();
-  // teamId → group: every team the user predicted as 3rd-place in some group
-  // is a potential third-place qualifier; map each one back to its group so
-  // bracket seeding can route picks into the right R32 slots.
-  const thirdPlaceTeamToGroup = new Map<string, string>();
-  for (const gp of groupPredictions) {
-    groupPickMap.set(gp.group, {
-      group: gp.group,
-      team1stId: gp.team1stId,
-      team2ndId: gp.team2ndId,
-      team3rdId: gp.team3rdId,
-      team4thId: gp.team4thId,
-    });
-    thirdPlaceTeamToGroup.set(gp.team3rdId, gp.group);
-  }
-  // Restrict to the user's saved qualifier picks. Drop any whose underlying
-  // 3rd-place pick has since changed.
-  const qualifierGroupByTeamId = new Map<string, string>();
-  for (const p of thirdPlacePicks) {
-    const group = thirdPlaceTeamToGroup.get(p.teamId);
-    if (group) qualifierGroupByTeamId.set(p.teamId, group);
-  }
-
-  const r32Seeded = resolveR32Slots(groupPickMap, qualifierGroupByTeamId);
 
   if (locked) {
     return (
@@ -124,30 +95,33 @@ export default async function BracketPage() {
     );
   }
 
-  const allGroupsPredicted = groupPredictions.length > 0;
+  // The Round of 32 is projected from real group results — the same matchups
+  // for everyone — using current group order and the eight best third-placed
+  // teams (FIFA Annex C). Picks that no longer fit the live matchups are flagged
+  // for re-selection rather than discarded.
+  const r32Slots = projectR32Slots(
+    groupMatches.map((m) => ({ ...m, group: m.group as string }))
+  );
+  const { valid: validPicks, staleR32Slots } = reconcileBracketPicks(
+    r32Slots,
+    bracketPicks
+  );
 
   return (
     <PageContainer title="Bracket">
-      {!allGroupsPredicted && (
-        <Card className="px-4 py-3 mb-4 border-[color:var(--color-accent-warning,var(--color-border-primary))]">
-          <p className="body body-size-medium">
-            Predict your group standings first to auto-seed the Round of 32.
-            You can still pick teams manually for unfilled slots.
-          </p>
-        </Card>
-      )}
       <div className="mb-3 flex flex-col gap-1">
         <p className="body body-size-medium text-[color:var(--color-text-secondary)]">
-          Click a team to mark them as winner of that match. Winners advance to
-          the next round.
+          The Round of 32 fills in live from real group results. Click a team to
+          pick the winner of each match — winners advance to the next round.
         </p>
         {lockTime && <SubmissionDeadline deadline={lockTime} />}
       </div>
       <WideBleed>
         <BracketPredictorForm
           teamsById={teamsById}
-          r32Seeding={r32Seeded}
-          initialPicks={bracketPicks.map((p) => ({
+          r32Seeding={r32Slots}
+          staleR32Slots={staleR32Slots}
+          initialPicks={validPicks.map((p) => ({
             round: p.round,
             slot: p.slot,
             teamId: p.teamId,

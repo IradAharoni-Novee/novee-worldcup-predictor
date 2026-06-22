@@ -30,12 +30,16 @@ export function InlineScoreEditor({
   initial,
   homeTeam,
   awayTeam,
+  homeFallback,
+  awayFallback,
   deadline,
 }: {
   matchId: string;
   initial: Initial;
   homeTeam: TeamLite;
   awayTeam: TeamLite;
+  homeFallback?: string;
+  awayFallback?: string;
   deadline: Date;
 }) {
   const initialHome = initial?.homeScore ?? 0;
@@ -105,6 +109,7 @@ export function InlineScoreEditor({
       <div className="flex flex-col gap-2">
         <TeamRow
           team={homeTeam}
+          fallback={homeFallback}
           right={
             <Stepper
               value={home}
@@ -115,6 +120,7 @@ export function InlineScoreEditor({
         />
         <TeamRow
           team={awayTeam}
+          fallback={awayFallback}
           right={
             <Stepper
               value={away}
