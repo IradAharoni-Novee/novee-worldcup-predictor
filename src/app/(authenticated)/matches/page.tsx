@@ -6,7 +6,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { scorePrediction } from "@/lib/scoring";
 import { isMatchLive } from "@/lib/format";
-import { liveR32Matchup, projectR32ByFdId } from "@/lib/r32-projection";
+import { projectR32Slots } from "@/lib/r32-projection";
+import { liveKnockoutMatchup } from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
 import { veeveeLine } from "@/lib/veevee-voice";
 
@@ -35,11 +36,12 @@ export default async function MatchesPage() {
     ])
   );
 
-  // Round of 32 fixtures are filled from live group standings, so a knockout
-  // card shows its projected matchup (e.g. "Mexico v Canada") before FIFA sets
-  // the teams. Resolved per request from the same group results everyone sees.
+  // Knockout fixtures are filled from live group standings: the Round of 32
+  // shows its projected teams (e.g. "Mexico v Canada"), the Round of 16 the team
+  // options feeding each side, and later rounds the feeding match ("Winner of
+  // R16 #1"). Resolved per request from the group results everyone sees.
   const teamsById = new Map(teams.map((t) => [t.id, t]));
-  const r32ByFd = projectR32ByFdId(
+  const r32Slots = projectR32Slots(
     matches
       .filter((m) => m.stage === "GROUP" && m.group)
       .map((m) => ({
@@ -50,6 +52,7 @@ export default async function MatchesPage() {
         awayScore: m.awayScore,
       }))
   );
+  const teamName = (id: string) => teamsById.get(id)?.name;
 
   function liveTeams(m: (typeof matches)[number]): {
     homeTeam: TeamLite;
@@ -57,20 +60,19 @@ export default async function MatchesPage() {
     homeFallback?: string;
     awayFallback?: string;
     provisional: boolean;
+    matchNo: number | null;
   } {
-    const live =
-      m.stage === "R32"
-        ? liveR32Matchup(
-            m.fdId,
-            { homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId },
-            r32ByFd
-          )
-        : null;
+    const live = liveKnockoutMatchup(
+      { fdId: m.fdId, stage: m.stage, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId },
+      r32Slots,
+      teamName
+    );
     if (!live) {
       return {
         homeTeam: m.homeTeam,
         awayTeam: m.awayTeam,
         provisional: false,
+        matchNo: null,
       };
     }
     return {
@@ -79,6 +81,7 @@ export default async function MatchesPage() {
       homeFallback: live.home.label,
       awayFallback: live.away.label,
       provisional: live.provisional,
+      matchNo: live.matchNo,
     };
   }
 
@@ -109,7 +112,7 @@ export default async function MatchesPage() {
                   awayScore: m.awayScore,
                 })
               : null;
-          const { homeTeam, awayTeam, homeFallback, awayFallback, provisional } =
+          const { homeTeam, awayTeam, homeFallback, awayFallback, provisional, matchNo } =
             liveTeams(m);
           return (
             <MatchCard
@@ -117,6 +120,7 @@ export default async function MatchesPage() {
               id={m.id}
               stage={m.stage}
               group={m.group}
+              matchNo={matchNo}
               kickoff={m.kickoff}
               venue={m.venue}
               city={m.city}

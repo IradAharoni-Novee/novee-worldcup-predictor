@@ -6,7 +6,6 @@ import {
 } from "@/lib/group-standings";
 import {
   R32_STRUCTURE,
-  R32_FD_ID_TO_FIFA_MATCH,
   slotSourceLabel,
   type SlotSource,
 } from "@/lib/r32-structure";
@@ -115,52 +114,4 @@ export function projectR32Slots(matches: ProjectedGroupMatch[]): ProjectedSlot[]
     homeLabel: slotSourceLabel(slot.home),
     awayLabel: slotSourceLabel(slot.away),
   }));
-}
-
-export type LiveR32Side = { teamId: string | null; label: string };
-export type LiveR32Matchup = {
-  home: LiveR32Side;
-  away: LiveR32Side;
-  // True when a side shows a real team projected from current standings that
-  // FIFA hasn't made official yet — i.e. the matchup can still change.
-  provisional: boolean;
-};
-
-// Resolve what to show for one R32 fixture: the official team once FIFA sets it,
-// otherwise the team currently projected into that bracket slot (falling back to
-// the position label, e.g. "2nd A", while the group is undecided). Returns null
-// for a fixture that is already finalised or has no bracket slot, so callers can
-// keep their existing rendering.
-export function liveR32Matchup(
-  fdId: number,
-  official: { homeTeamId: string | null; awayTeamId: string | null },
-  r32ByFdId: Map<number, ProjectedSlot>
-): LiveR32Matchup | null {
-  if (official.homeTeamId && official.awayTeamId) return null;
-  const slot = r32ByFdId.get(fdId);
-  if (!slot) return null;
-  const homeProjected = official.homeTeamId == null && slot.homeId != null;
-  const awayProjected = official.awayTeamId == null && slot.awayId != null;
-  return {
-    home: { teamId: official.homeTeamId ?? slot.homeId, label: slot.homeLabel },
-    away: { teamId: official.awayTeamId ?? slot.awayId, label: slot.awayLabel },
-    provisional: homeProjected || awayProjected,
-  };
-}
-
-// Project the Round of 32 keyed by each fixture's football-data id, so a synced
-// Match row can be matched to its live matchup. Returns a map of `fdId ->
-// ProjectedSlot` covering all 16 R32 fixtures (see R32_FD_ID_TO_FIFA_MATCH).
-export function projectR32ByFdId(
-  matches: ProjectedGroupMatch[]
-): Map<number, ProjectedSlot> {
-  const slotByFifaMatch = new Map(
-    projectR32Slots(matches).map((slot) => [slot.fifaMatch, slot])
-  );
-  const byFdId = new Map<number, ProjectedSlot>();
-  for (const [fdId, fifaMatch] of Object.entries(R32_FD_ID_TO_FIFA_MATCH)) {
-    const slot = slotByFifaMatch.get(fifaMatch);
-    if (slot) byFdId.set(Number(fdId), slot);
-  }
-  return byFdId;
 }

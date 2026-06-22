@@ -13,6 +13,9 @@ export type MatchCardProps = {
   id: string;
   stage: "GROUP" | "R32" | "R16" | "QF" | "SF" | "THIRD" | "FINAL";
   group: string | null;
+  // 1-based number within the round (e.g. Round of 16 #3), shown next to the
+  // stage chip so that "Winner of R16 #3" labels on later rounds point here.
+  matchNo?: number | null;
   kickoff: Date;
   venue: string | null;
   city: string | null;
@@ -119,6 +122,7 @@ export function MatchCard({
   id,
   stage,
   group,
+  matchNo,
   kickoff,
   venue,
   city,
@@ -152,6 +156,11 @@ export function MatchCard({
             color={stageChipColor(stage)}
             label={stageLabel(stage, group)}
           />
+          {matchNo != null && (
+            <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+              #{matchNo}
+            </span>
+          )}
           {live && <LiveBadge />}
           {status === "FINISHED" && points != null && (
             <Chip
