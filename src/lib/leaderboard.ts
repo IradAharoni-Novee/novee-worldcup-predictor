@@ -69,7 +69,10 @@ export type MatchPointsSummary = {
  *
  * `earnings`/`liveEarnings` treat each prediction as a $100 bet on its implied
  * 1/X/2 outcome, settled at the match's stored average odds — a wrong bet loses
- * the full stake, so the bet is settled before the zero-points fast path.
+ * the full stake, so the bet is settled before the zero-points fast path. Bets
+ * settle on the stored regulation/ET scoreline, so a knockout decided on
+ * penalties settles as a draw — matching both the h2h odds market and
+ * `scorePrediction`'s points logic.
  */
 export function summarizeMatchPoints(
   predictions: MatchPointsPrediction[],

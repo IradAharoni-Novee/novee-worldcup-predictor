@@ -1,59 +1,100 @@
-import { describe, expect, it } from "vitest";
-import { pickByTeamsAtMinute } from "@/lib/match-reconcile";
-import type { OddsEvent } from "@/lib/odds-api";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
-// syncOddsFromOddsApi reconciles each upcoming DB match to a the-odds-api event
-// via pickByTeamsAtMinute, then writes the averaged odds onto the match. The DB
-// write needs Prisma, so these tests cover the pure matching/mapping step with
-// OddsEvent-shaped candidates (homeName / awayName / date) — exactly the shape
-// the sync hands to pickByTeamsAtMinute.
+// syncOddsFromOddsApi loads upcoming matches, fetches current odds once, and
+// writes the averaged 1/X/2 odds onto each match it can confidently reconcile.
+// We mock only the boundaries — Prisma and the the-odds-api client — and let the
+// real pickByTeamsAtMinute do the matching.
 
-function event(overrides: Partial<OddsEvent>): OddsEvent {
-  return {
-    homeName: "Mexico",
-    awayName: "South Africa",
-    date: "2026-06-11T19:00:00Z",
-    odds: { home: 1.8, draw: 3.4, away: 4.2 },
-    ...overrides,
-  };
-}
+vi.mock("@/lib/prisma", () => ({
+  prisma: { match: { findMany: vi.fn(), update: vi.fn() } },
+}));
+vi.mock("@/lib/odds-api", () => ({ fetchCurrentOdds: vi.fn() }));
 
-describe("syncOddsFromOddsApi candidate matching", () => {
-  const match = {
-    homeName: "Mexico",
-    awayName: "South Africa",
-    kickoff: new Date("2026-06-11T19:00:00Z"),
-  };
+import { prisma } from "@/lib/prisma";
+import { fetchCurrentOdds } from "@/lib/odds-api";
+import { syncOddsFromOddsApi } from "@/lib/sync";
 
-  it("matches an odds event by team names + kickoff minute and carries its odds", () => {
-    const chosen = pickByTeamsAtMinute(match, [event({})]);
-    expect(chosen?.odds).toEqual({ home: 1.8, draw: 3.4, away: 4.2 });
+const findMany = prisma.match.findMany as unknown as Mock;
+const update = prisma.match.update as unknown as Mock;
+const fetchOdds = fetchCurrentOdds as unknown as Mock;
+
+const mexicoMatch = {
+  id: "m1",
+  kickoff: new Date("2026-06-11T19:00:00Z"),
+  homeTeam: { name: "Mexico" },
+  awayTeam: { name: "South Africa" },
+};
+
+const mexicoEvent = {
+  homeName: "Mexico",
+  awayName: "South Africa",
+  date: "2026-06-11T19:00:00Z",
+  odds: { home: 1.8, draw: 3.4, away: 4.2 },
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  update.mockResolvedValue({});
+});
+
+describe("syncOddsFromOddsApi", () => {
+  it("only loads upcoming matches (kickoff in the future)", async () => {
+    findMany.mockResolvedValue([]);
+    await syncOddsFromOddsApi();
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { kickoff: { gt: expect.any(Date) } } })
+    );
   });
 
-  it("matches regardless of home/away orientation", () => {
-    const chosen = pickByTeamsAtMinute(match, [
-      event({ homeName: "South Africa", awayName: "Mexico", odds: { home: 4.2, draw: 3.4, away: 1.8 } }),
+  it("short-circuits without calling the odds API when no matches are upcoming", async () => {
+    findMany.mockResolvedValue([]);
+    const result = await syncOddsFromOddsApi();
+    expect(result).toEqual({ oddsUpdated: 0 });
+    expect(fetchOdds).not.toHaveBeenCalled();
+  });
+
+  it("writes the averaged odds for a reconciled match", async () => {
+    findMany.mockResolvedValue([mexicoMatch]);
+    fetchOdds.mockResolvedValue([mexicoEvent]);
+    const result = await syncOddsFromOddsApi();
+    expect(result).toEqual({ oddsUpdated: 1 });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: {
+        oddsHome: 1.8,
+        oddsDraw: 3.4,
+        oddsAway: 4.2,
+        oddsUpdatedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it("skips matches no odds event reconciles to", async () => {
+    findMany.mockResolvedValue([mexicoMatch]);
+    fetchOdds.mockResolvedValue([
+      { ...mexicoEvent, homeName: "Brazil", awayName: "Croatia" },
     ]);
-    expect(chosen?.odds.home).toBe(4.2);
+    const result = await syncOddsFromOddsApi();
+    expect(result).toEqual({ oddsUpdated: 0 });
+    expect(update).not.toHaveBeenCalled();
   });
 
-  it("disambiguates two events at the same kickoff by team names", () => {
-    const events = [
-      event({ homeName: "Brazil", awayName: "Croatia", odds: { home: 1.5, draw: 4, away: 6 } }),
-      event({ odds: { home: 1.8, draw: 3.4, away: 4.2 } }),
-    ];
-    expect(pickByTeamsAtMinute(match, events)?.odds.home).toBe(1.8);
-  });
-
-  it("ignores events at a different kickoff time", () => {
-    const chosen = pickByTeamsAtMinute(match, [event({ date: "2026-06-12T02:00:00Z" })]);
-    expect(chosen).toBeNull();
-  });
-
-  it("returns null when no team names match", () => {
-    const chosen = pickByTeamsAtMinute(match, [
-      event({ homeName: "Brazil", awayName: "Croatia" }),
+  it("prices only the matched subset when some matches are unmatched", async () => {
+    findMany.mockResolvedValue([
+      mexicoMatch,
+      {
+        id: "m2",
+        kickoff: new Date("2026-06-12T16:00:00Z"),
+        homeTeam: { name: "Spain" },
+        awayTeam: { name: "Japan" },
+      },
     ]);
-    expect(chosen).toBeNull();
+    fetchOdds.mockResolvedValue([mexicoEvent]);
+    const result = await syncOddsFromOddsApi();
+    expect(result).toEqual({ oddsUpdated: 1 });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "m1" } })
+    );
   });
 });

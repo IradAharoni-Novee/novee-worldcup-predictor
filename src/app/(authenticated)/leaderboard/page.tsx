@@ -85,6 +85,10 @@ export default async function LeaderboardPage() {
             {rows.map((row, index) => {
               const rank = index + 1;
               const me = row.userId === session?.user?.id;
+              // Colour/visibility track the displayed (rounded) dollars so float
+              // residue near a boundary can't tint a "$0" or show an empty chip.
+              const earningsRounded = Math.round(row.earnings);
+              const liveEarningsRounded = Math.round(row.liveEarnings);
               return (
                 <TableRow
                   key={row.userId}
@@ -159,19 +163,19 @@ export default async function LeaderboardPage() {
                     <span className="inline-flex items-center justify-end gap-1.5">
                       <span
                         className={
-                          row.earnings > 0
+                          earningsRounded > 0
                             ? "text-[color:var(--color-accent-success)]"
-                            : row.earnings < 0
+                            : earningsRounded < 0
                               ? "text-[color:var(--color-accent-danger)]"
                               : "text-[color:var(--color-text-tertiary)]"
                         }
                       >
                         {formatMoney(row.earnings)}
                       </span>
-                      {row.liveEarnings !== 0 && (
+                      {liveEarningsRounded !== 0 && (
                         <Chip
                           size="small"
-                          color="red"
+                          color={liveEarningsRounded > 0 ? "green" : "red"}
                           label={formatMoney(row.liveEarnings)}
                           title={`${formatMoney(row.liveEarnings)} from live matches`}
                         />

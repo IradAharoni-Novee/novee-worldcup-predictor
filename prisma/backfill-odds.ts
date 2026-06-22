@@ -3,6 +3,10 @@
 // historical (closing) snapshot at kickoff − 5min. Reconciles each event to a DB
 // match by team name + kickoff minute and writes the averaged 1/X/2 decimal odds.
 // Run with: pnpm backfill-odds
+//
+// Re-running is safe (priced matches drop out via the oddsHome: null filter), but
+// a match that never reconciles stays null and is retried every run — re-fetching,
+// and re-charging ~10 credits for, its kickoff−5min snapshot. Run sparingly.
 
 import { fetchHistoricalOdds, type OddsEvent } from "@/lib/odds-api";
 import { pickByTeamsAtMinute } from "@/lib/match-reconcile";
