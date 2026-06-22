@@ -31,8 +31,8 @@ export const DEFAULT_SCORING: ScoringConfig = {
   },
   tournamentWinnerPoints: 25,
   goldenBootPoints: 20,
-  podiumExactPosition: 10,
-  podiumInTop3: 4,
+  podiumExactPosition: 3,
+  podiumInTop3: 1,
 };
 
 type MatchLike = {

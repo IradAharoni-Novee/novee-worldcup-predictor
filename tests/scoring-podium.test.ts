@@ -11,8 +11,8 @@ describe("scorePodiumPrediction", () => {
       actual,
       DEFAULT_SCORING
     );
-    // 3 exact × 10
-    expect(result).toEqual({ total: 30, exact: 3, inTop3: 0 });
+    // 3 exact × 3
+    expect(result).toEqual({ total: 9, exact: 3, inTop3: 0 });
   });
 
   it("gives partial credit for right people in the wrong slots", () => {
@@ -21,8 +21,8 @@ describe("scorePodiumPrediction", () => {
       actual,
       DEFAULT_SCORING
     );
-    // C exact (10), A and B on podium wrong slot (2 × 4)
-    expect(result).toEqual({ total: 18, exact: 1, inTop3: 2 });
+    // C exact (3), A and B on podium wrong slot (2 × 1)
+    expect(result).toEqual({ total: 5, exact: 1, inTop3: 2 });
   });
 
   it("scores a name that misses the podium as zero", () => {
@@ -31,8 +31,8 @@ describe("scorePodiumPrediction", () => {
       actual,
       DEFAULT_SCORING
     );
-    // A and B exact (2 × 10), Z not on podium
-    expect(result).toEqual({ total: 20, exact: 2, inTop3: 0 });
+    // A and B exact (2 × 3), Z not on podium
+    expect(result).toEqual({ total: 6, exact: 2, inTop3: 0 });
   });
 
   it("awards 0 when none of the picks land on the podium", () => {
@@ -68,7 +68,7 @@ describe("scorePodiumPrediction", () => {
       ["A", "B", "C", "D"],
       DEFAULT_SCORING
     );
-    // A, B exact; D is 4th, not on the podium
-    expect(result).toEqual({ total: 20, exact: 2, inTop3: 0 });
+    // A, B exact (2 × 3); D is 4th, not on the podium
+    expect(result).toEqual({ total: 6, exact: 2, inTop3: 0 });
   });
 });
