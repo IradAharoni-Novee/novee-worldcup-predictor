@@ -13,30 +13,30 @@ datasource db {
 // Auth.js core tables — see https://authjs.dev/getting-started/adapters/prisma
 
 model User {
-  id                         String                      @id @default(cuid())
-  email                      String                      @unique
-  name                       String?
-  emailVerified              DateTime?
-  image                      String?
-  passwordHash               String?
-  isAdmin                    Boolean                     @default(false)
-  createdAt                  DateTime                    @default(now())
+  id                       String                      @id @default(cuid())
+  email                    String                      @unique
+  name                     String?
+  emailVerified            DateTime?
+  image                    String?
+  passwordHash             String?
+  isAdmin                  Boolean                     @default(false)
+  createdAt                DateTime                    @default(now())
   // Self-FK: pick a colleague as your nemesis. /me surfaces an H2H delta.
-  nemesisId                  String?
-  nemesis                    User?                       @relation("UserNemesis", fields: [nemesisId], references: [id], onDelete: SetNull)
-  enemyOf                    User[]                      @relation("UserNemesis")
-  accounts                   Account[]
-  sessions                   Session[]
-  predictions                Prediction[]
-  groupPredictions           GroupPrediction[]
-  bracketPicks               BracketPick[]
-  winnerPrediction           TournamentWinnerPrediction?
-  goldenBootPrediction       GoldenBootPrediction?
-  thirdPlaceQualifierPicks   ThirdPlaceQualifierPick[]
-  podiumPrediction           PodiumPrediction?           @relation("PodiumPredictor")
-  podiumPickedFirst          PodiumPrediction[]          @relation("PodiumFirst")
-  podiumPickedSecond         PodiumPrediction[]          @relation("PodiumSecond")
-  podiumPickedThird          PodiumPrediction[]          @relation("PodiumThird")
+  nemesisId                String?
+  nemesis                  User?                       @relation("UserNemesis", fields: [nemesisId], references: [id], onDelete: SetNull)
+  enemyOf                  User[]                      @relation("UserNemesis")
+  accounts                 Account[]
+  sessions                 Session[]
+  predictions              Prediction[]
+  groupPredictions         GroupPrediction[]
+  bracketPicks             BracketPick[]
+  winnerPrediction         TournamentWinnerPrediction?
+  goldenBootPrediction     GoldenBootPrediction?
+  thirdPlaceQualifierPicks ThirdPlaceQualifierPick[]
+  podiumPrediction         PodiumPrediction?           @relation("PodiumPredictor")
+  podiumPickedFirst        PodiumPrediction[]          @relation("PodiumFirst")
+  podiumPickedSecond       PodiumPrediction[]          @relation("PodiumSecond")
+  podiumPickedThird        PodiumPrediction[]          @relation("PodiumThird")
 }
 
 model Account {
@@ -92,34 +92,34 @@ enum MatchStatus {
 }
 
 model Team {
-  id        String  @id @default(cuid())
-  fdId      Int     @unique
-  name      String
-  code      String  @unique
-  flag      String?
-  homeMatches Match[] @relation("HomeTeam")
-  awayMatches Match[] @relation("AwayTeam")
-  groupPicks1st GroupPrediction[] @relation("GroupPick1st")
-  groupPicks2nd GroupPrediction[] @relation("GroupPick2nd")
-  groupPicks3rd GroupPrediction[] @relation("GroupPick3rd")
-  groupPicks4th GroupPrediction[] @relation("GroupPick4th")
-  bracketPicks  BracketPick[]     @relation("BracketPickTeam")
-  winnerPicks   TournamentWinnerPrediction[] @relation("WinnerPickTeam")
-  thirdPlaceQualifiers ThirdPlaceQualifierPick[] @relation("ThirdPlaceQualifierTeam")
-  players       Player[]
+  id                   String                       @id @default(cuid())
+  fdId                 Int                          @unique
+  name                 String
+  code                 String                       @unique
+  flag                 String?
+  homeMatches          Match[]                      @relation("HomeTeam")
+  awayMatches          Match[]                      @relation("AwayTeam")
+  groupPicks1st        GroupPrediction[]            @relation("GroupPick1st")
+  groupPicks2nd        GroupPrediction[]            @relation("GroupPick2nd")
+  groupPicks3rd        GroupPrediction[]            @relation("GroupPick3rd")
+  groupPicks4th        GroupPrediction[]            @relation("GroupPick4th")
+  bracketPicks         BracketPick[]                @relation("BracketPickTeam")
+  winnerPicks          TournamentWinnerPrediction[] @relation("WinnerPickTeam")
+  thirdPlaceQualifiers ThirdPlaceQualifierPick[]    @relation("ThirdPlaceQualifierTeam")
+  players              Player[]
 }
 
 model Player {
-  id          String  @id @default(cuid())
-  fdId        Int?    @unique
-  name        String
-  position    String?
-  dateOfBirth String?
-  nationality String?
-  photo       String?
-  fifaName    String?
-  teamId      String?
-  team        Team?   @relation(fields: [teamId], references: [id])
+  id              String                 @id @default(cuid())
+  fdId            Int?                   @unique
+  name            String
+  position        String?
+  dateOfBirth     String?
+  nationality     String?
+  photo           String?
+  fifaName        String?
+  teamId          String?
+  team            Team?                  @relation(fields: [teamId], references: [id])
   goldenBootPicks GoldenBootPrediction[] @relation("GoldenBootPickPlayer")
 
   @@index([teamId])
@@ -127,20 +127,24 @@ model Player {
 }
 
 model Match {
-  id         String      @id @default(cuid())
-  fdId       Int         @unique
-  stage      Stage
-  group      String?
-  kickoff    DateTime
-  venue      String?
-  city       String?
-  country    String?
-  homeTeamId String?
-  awayTeamId String?
-  homeScore  Int?
-  awayScore  Int?
-  status     MatchStatus @default(SCHEDULED)
-  updatedAt  DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  fdId          Int         @unique
+  stage         Stage
+  group         String?
+  kickoff       DateTime
+  venue         String?
+  city          String?
+  country       String?
+  homeTeamId    String?
+  awayTeamId    String?
+  homeScore     Int?
+  awayScore     Int?
+  status        MatchStatus @default(SCHEDULED)
+  oddsHome      Float?
+  oddsDraw      Float?
+  oddsAway      Float?
+  oddsUpdatedAt DateTime?
+  updatedAt     DateTime    @updatedAt
 
   homeTeam    Team?        @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam    Team?        @relation("AwayTeam", fields: [awayTeamId], references: [id])
@@ -287,14 +291,14 @@ model ThirdPlaceQualifierPick {
 // delete anything in either table from a web action.
 
 model CtfFlag {
-  id             String       @id @default(cuid())
-  slug           String       @unique
-  code           String       @unique
-  points         Int          @default(10)
-  hint           String
-  discoveryHint  String
-  createdAt      DateTime     @default(now())
-  captures       CtfCapture[]
+  id            String       @id @default(cuid())
+  slug          String       @unique
+  code          String       @unique
+  points        Int          @default(10)
+  hint          String
+  discoveryHint String
+  createdAt     DateTime     @default(now())
+  captures      CtfCapture[]
 }
 
 model CtfCapture {
