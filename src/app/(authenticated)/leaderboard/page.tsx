@@ -20,6 +20,15 @@ import { getLeaderboard } from "@/lib/leaderboard";
 import { veeveeLine } from "@/lib/veevee-voice";
 import { Odometer } from "@/components/ui/odometer";
 
+/** Format a net P&L amount as whole-dollar currency with a leading sign for
+ * nonzero values, e.g. `+$1,250`, `-$700`, `$0`. */
+function formatMoney(n: number): string {
+  const rounded = Math.round(n);
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+  const magnitude = Math.abs(rounded).toLocaleString("en-US");
+  return `${sign}$${magnitude}`;
+}
+
 export default async function LeaderboardPage() {
   const session = await auth();
   const now = new Date();
@@ -62,6 +71,7 @@ export default async function LeaderboardPage() {
               <TableHead className="w-12">#</TableHead>
               <TableHead>Player</TableHead>
               <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Earnings</TableHead>
               <TableHead className="text-right hidden sm:table-cell">Matches</TableHead>
               <TableHead className="text-right hidden sm:table-cell">Groups</TableHead>
               <TableHead className="text-right hidden md:table-cell">Bracket</TableHead>
@@ -141,6 +151,29 @@ export default async function LeaderboardPage() {
                           color="red"
                           label={`+${row.livePoints}`}
                           title={`+${row.livePoints} from live matches`}
+                        />
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums hidden sm:table-cell">
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                      <span
+                        className={
+                          row.earnings > 0
+                            ? "text-[color:var(--color-accent-success)]"
+                            : row.earnings < 0
+                              ? "text-[color:var(--color-accent-danger)]"
+                              : "text-[color:var(--color-text-tertiary)]"
+                        }
+                      >
+                        {formatMoney(row.earnings)}
+                      </span>
+                      {row.liveEarnings !== 0 && (
+                        <Chip
+                          size="small"
+                          color="red"
+                          label={formatMoney(row.liveEarnings)}
+                          title={`${formatMoney(row.liveEarnings)} from live matches`}
                         />
                       )}
                     </span>
