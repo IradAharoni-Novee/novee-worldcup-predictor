@@ -16,6 +16,7 @@ import {
 } from "@/lib/scoring-awards";
 import { scorePodiumPrediction } from "@/lib/scoring-podium";
 import { isAiPlayer } from "@/lib/ai-players";
+import { oddsForOutcome, outcomeOf, settleBet } from "@/lib/earnings";
 
 export type LeaderboardRow = {
   userId: string;
@@ -32,6 +33,8 @@ export type LeaderboardRow = {
   exact: number;
   outcome: number;
   predictions: number;
+  earnings: number;
+  liveEarnings: number;
 };
 
 type MatchPointsPrediction = {
@@ -43,6 +46,9 @@ type MatchPointsPrediction = {
     awayScore: number | null;
     status: MatchStatus;
     kickoff: Date;
+    oddsHome: number | null;
+    oddsDraw: number | null;
+    oddsAway: number | null;
   };
 };
 
@@ -51,6 +57,8 @@ export type MatchPointsSummary = {
   livePoints: number;
   exact: number;
   outcome: number;
+  earnings: number;
+  liveEarnings: number;
 };
 
 /**
@@ -58,6 +66,10 @@ export type MatchPointsSummary = {
  * and live (in-progress matches scored at their current scoreline — "if the
  * game ended now"). `exact`/`outcome` count confirmed hits only; live points
  * stay provisional until the match finishes.
+ *
+ * `earnings`/`liveEarnings` treat each prediction as a $100 bet on its implied
+ * 1/X/2 outcome, settled at the match's stored average odds — a wrong bet loses
+ * the full stake, so the bet is settled before the zero-points fast path.
  */
 export function summarizeMatchPoints(
   predictions: MatchPointsPrediction[],
@@ -68,10 +80,19 @@ export function summarizeMatchPoints(
   let livePoints = 0;
   let exact = 0;
   let outcome = 0;
+  let earnings = 0;
+  let liveEarnings = 0;
   for (const p of predictions) {
     const finished = p.match.status === "FINISHED";
     const live = !finished && isMatchLive(p.match.status, p.match.kickoff, now);
     if (!finished && !live) continue;
+    if (p.match.homeScore != null && p.match.awayScore != null) {
+      const predicted = outcomeOf(p.homeScore, p.awayScore);
+      const actual = outcomeOf(p.match.homeScore, p.match.awayScore);
+      const pnl = settleBet(predicted, actual, oddsForOutcome(predicted, p.match));
+      if (finished) earnings += pnl;
+      else liveEarnings += pnl;
+    }
     const points = scorePrediction(
       { homeScore: p.homeScore, awayScore: p.awayScore },
       {
@@ -91,7 +112,7 @@ export function summarizeMatchPoints(
     if (points === config.exactScore * multiplier) exact++;
     else outcome++;
   }
-  return { matchPoints, livePoints, exact, outcome };
+  return { matchPoints, livePoints, exact, outcome, earnings, liveEarnings };
 }
 
 export async function getScoringConfig(): Promise<ScoringConfig> {
@@ -143,6 +164,9 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
                   awayScore: true,
                   status: true,
                   kickoff: true,
+                  oddsHome: true,
+                  oddsDraw: true,
+                  oddsAway: true,
                 },
               },
             },
@@ -223,11 +247,8 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   // First pass: every surface except the podium meta-prediction. The podium is
   // graded against this base ranking so the meta-prediction never grades itself.
   const baseRows = users.map((user) => {
-    const { matchPoints, livePoints, exact, outcome } = summarizeMatchPoints(
-      user.predictions,
-      config,
-      now
-    );
+    const { matchPoints, livePoints, exact, outcome, earnings, liveEarnings } =
+      summarizeMatchPoints(user.predictions, config, now);
 
     let groupPoints = 0;
     for (const gp of user.groupPredictions) {
@@ -267,6 +288,8 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       groupPoints,
       bracketPoints: bracketScore.total,
       awardsPoints: awardsScore.total,
+      earnings,
+      liveEarnings,
       baseTotal,
     };
   });
@@ -300,6 +323,8 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       exact: r.exact,
       outcome: r.outcome,
       predictions: r.user.predictions.length,
+      earnings: r.earnings,
+      liveEarnings: r.liveEarnings,
     };
   });
 
