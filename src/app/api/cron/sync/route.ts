@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { syncSquadPhotosFromFifa } from "@/lib/fifa-squad";
-import { syncFromFootballData, syncVenuesFromEspn } from "@/lib/sync";
+import {
+  syncFromFootballData,
+  syncOddsFromOddsApi,
+  syncVenuesFromEspn,
+} from "@/lib/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +46,15 @@ async function handle(req: Request) {
     } catch (err) {
       squadPhotosError = err instanceof Error ? err.message : "unknown error";
     }
+    // Odds come from the-odds-api and only price upcoming games. Like venues, a
+    // failure here shouldn't fail the whole cron — odds are a display-only extra.
+    let odds: Awaited<ReturnType<typeof syncOddsFromOddsApi>> | null = null;
+    let oddsError: string | null = null;
+    try {
+      odds = await syncOddsFromOddsApi();
+    } catch (err) {
+      oddsError = err instanceof Error ? err.message : "unknown error";
+    }
     return NextResponse.json({
       ok: true,
       ...fd,
@@ -49,6 +62,8 @@ async function handle(req: Request) {
       venuesError,
       squadPhotos,
       squadPhotosError,
+      odds,
+      oddsError,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

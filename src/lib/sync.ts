@@ -10,6 +10,7 @@ import {
   fetchWorldCupFixturesByDate,
   type AfFixture,
 } from "@/lib/api-football";
+import { fetchCurrentOdds } from "@/lib/odds-api";
 import {
   isoMinute,
   normaliseName,
@@ -241,6 +242,64 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
     updated += res.count;
   }
   return { updated };
+}
+
+/**
+ * Capture pre-match odds for every upcoming game in the daily cron.
+ *
+ * Fetches the-odds-api current board once (all upcoming/live games, one credit),
+ * reconciles each not-yet-kicked-off DB match to an event via the shared
+ * team/kickoff rules (see match-reconcile.ts), and writes the averaged 1/X/2
+ * decimal odds plus `oddsUpdatedAt`. Re-running daily overwrites until kickoff
+ * freezes the last pre-match value. Matches with no confident event match are
+ * left untouched.
+ *
+ * @returns The number of matches whose odds were written.
+ */
+export async function syncOddsFromOddsApi(): Promise<{ oddsUpdated: number }> {
+  const now = new Date();
+  const matches = await prisma.match.findMany({
+    where: { kickoff: { gt: now } },
+    select: {
+      id: true,
+      kickoff: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+  if (matches.length === 0) return { oddsUpdated: 0 };
+
+  const oddsEvents = await fetchCurrentOdds();
+  const candidates = oddsEvents.map((e) => ({
+    homeName: e.homeName,
+    awayName: e.awayName,
+    date: e.date,
+    odds: e.odds,
+  }));
+
+  let oddsUpdated = 0;
+  for (const m of matches) {
+    const chosen = pickByTeamsAtMinute(
+      {
+        homeName: m.homeTeam?.name ?? "",
+        awayName: m.awayTeam?.name ?? "",
+        kickoff: m.kickoff,
+      },
+      candidates
+    );
+    if (!chosen) continue;
+    await prisma.match.update({
+      where: { id: m.id },
+      data: {
+        oddsHome: chosen.odds.home,
+        oddsDraw: chosen.odds.draw,
+        oddsAway: chosen.odds.away,
+        oddsUpdatedAt: new Date(),
+      },
+    });
+    oddsUpdated += 1;
+  }
+  return { oddsUpdated };
 }
 
 export type SyncVenuesResult = {
