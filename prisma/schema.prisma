@@ -33,6 +33,10 @@ model User {
   winnerPrediction           TournamentWinnerPrediction?
   goldenBootPrediction       GoldenBootPrediction?
   thirdPlaceQualifierPicks   ThirdPlaceQualifierPick[]
+  podiumPrediction           PodiumPrediction?           @relation("PodiumPredictor")
+  podiumPickedFirst          PodiumPrediction[]          @relation("PodiumFirst")
+  podiumPickedSecond         PodiumPrediction[]          @relation("PodiumSecond")
+  podiumPickedThird          PodiumPrediction[]          @relation("PodiumThird")
 }
 
 model Account {
@@ -239,6 +243,28 @@ model GoldenBootPrediction {
   player Player @relation("GoldenBootPickPlayer", fields: [playerId], references: [id])
 
   @@index([playerId])
+}
+
+// Meta-prediction: call the final human leaderboard podium (1st/2nd/3rd). One
+// row per predictor; the three picks are self-relations to other users. Settled
+// automatically once the FINAL match finishes — see lib/scoring-podium.ts.
+model PodiumPrediction {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  firstId     String
+  secondId    String
+  thirdId     String
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User @relation("PodiumPredictor", fields: [userId], references: [id], onDelete: Cascade)
+  first  User @relation("PodiumFirst", fields: [firstId], references: [id])
+  second User @relation("PodiumSecond", fields: [secondId], references: [id])
+  third  User @relation("PodiumThird", fields: [thirdId], references: [id])
+
+  @@index([firstId])
+  @@index([secondId])
+  @@index([thirdId])
 }
 
 model ThirdPlaceQualifierPick {

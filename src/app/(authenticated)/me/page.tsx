@@ -22,12 +22,13 @@ import {
   scoreAwards,
 } from "@/lib/scoring-awards";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { veeveeLine } from "@/lib/veevee-voice";
 import { computeAchievementsForUser } from "@/lib/achievements";
 import { AchievementsRow } from "@/components/me/achievements-row";
 import { NemesisCard } from "@/components/me/nemesis-card";
 import { CelebrationTrigger } from "@/components/me/celebration-trigger";
-import { getLeaderboard } from "@/lib/leaderboard";
+import { getLeaderboard, isPodiumSettled } from "@/lib/leaderboard";
 import { isAiPlayer } from "@/lib/ai-players";
 
 const ROUND_LABELS = {
@@ -55,6 +56,7 @@ export default async function MePage() {
     goldenBootPick,
     actualWinnerSetting,
     actualGbSetting,
+    podiumPick,
   ] = await Promise.all([
     prisma.prediction.findMany({
       where: { userId },
@@ -109,6 +111,14 @@ export default async function MePage() {
     }),
     prisma.setting.findUnique({ where: { key: SETTING_KEY_ACTUAL_WINNER } }),
     prisma.setting.findUnique({ where: { key: SETTING_KEY_ACTUAL_GOLDEN_BOOT } }),
+    prisma.podiumPrediction.findUnique({
+      where: { userId },
+      include: {
+        first: { select: { name: true, email: true, image: true } },
+        second: { select: { name: true, email: true, image: true } },
+        third: { select: { name: true, email: true, image: true } },
+      },
+    }),
   ]);
 
   const actualWinnerTeamId =
@@ -166,18 +176,24 @@ export default async function MePage() {
     config
   );
 
-  const total = matchPoints + groupPoints + bracketScore.total + awardsScore.total;
-
-  const [achievements, leaderboard, me] = await Promise.all([
+  const [achievements, leaderboard, me, podiumSettled] = await Promise.all([
     computeAchievementsForUser(userId),
     getLeaderboard(),
     prisma.user.findUnique({
       where: { id: userId },
       select: { nemesisId: true },
     }),
+    isPodiumSettled(),
   ]);
 
   const currentUserRow = leaderboard.find((r) => r.userId === userId);
+  const podiumPoints = currentUserRow?.podiumPoints ?? 0;
+  const total =
+    matchPoints +
+    groupPoints +
+    bracketScore.total +
+    awardsScore.total +
+    podiumPoints;
   const nemesisRow = me?.nemesisId
     ? leaderboard.find((r) => r.userId === me.nemesisId) ?? null
     : null;
@@ -199,12 +215,13 @@ export default async function MePage() {
         inTop3={inTop3}
       />
       <Card className="px-4 sm:px-6">
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           <Stat label="Total points" value={total} />
           <Stat label="Match points" value={matchPoints} />
           <Stat label="Group points" value={groupPoints} />
           <Stat label="Bracket points" value={bracketScore.total} />
           <Stat label="Awards points" value={awardsScore.total} />
+          <Stat label="Podium points" value={podiumPoints} />
         </div>
       </Card>
 
@@ -298,6 +315,60 @@ export default async function MePage() {
             </div>
           </Card>
         </div>
+      </Section>
+
+      <Section title="Podium">
+        {!podiumPick ? (
+          <EmptyHint voice={veeveeLine("emptyMe", userId)}>
+            You haven&apos;t called the leaderboard podium yet.{" "}
+            <Link
+              href="/podium"
+              className="text-[color:var(--color-action-primary-cta)] underline"
+            >
+              Pick your top 3
+            </Link>
+            .
+          </EmptyHint>
+        ) : (
+          <Card className="py-3 px-4 gap-2 md:max-w-md">
+            <div className="flex items-center justify-between">
+              <span className="body body-weight-medium body-size-small">
+                Final leaderboard top 3
+              </span>
+              {podiumSettled ? (
+                <Chip
+                  size="small"
+                  color={podiumPoints > 0 ? "green" : "slate"}
+                  label={`${podiumPoints} pt${podiumPoints === 1 ? "" : "s"}`}
+                />
+              ) : (
+                <Chip size="small" color="amber" label="Picked" />
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { label: "1st", person: podiumPick.first },
+                { label: "2nd", person: podiumPick.second },
+                { label: "3rd", person: podiumPick.third },
+              ].map(({ label, person }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="code code-size-small w-7 shrink-0 text-[color:var(--color-text-tertiary)]">
+                    {label}
+                  </span>
+                  <UserAvatar
+                    email={person.email}
+                    name={person.name}
+                    image={person.image}
+                    size={24}
+                  />
+                  <span className="body body-size-small truncate">
+                    {person.name ?? person.email.split("@")[0]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </Section>
 
       <Section title="Group predictions">
