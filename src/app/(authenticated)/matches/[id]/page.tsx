@@ -17,7 +17,8 @@ import { PageContainer } from "@/components/shell/page-container";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
 import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
-import { liveR32Matchup, projectR32ByFdId } from "@/lib/r32-projection";
+import { projectR32Slots } from "@/lib/r32-projection";
+import { liveKnockoutMatchup } from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
@@ -62,11 +63,12 @@ export default async function MatchDetailPage({
   );
   if (!match) notFound();
 
-  // A Round of 32 fixture whose teams aren't set yet shows its live projected
-  // matchup from current group standings, with a "not final" note.
-  const liveR32 = await resolveLiveR32Matchup(match);
-  const homeTeam = liveR32?.homeTeam ?? match.homeTeam;
-  const awayTeam = liveR32?.awayTeam ?? match.awayTeam;
+  // A knockout fixture whose teams aren't set yet shows its live projection: the
+  // Round of 32 its teams from current group standings, the Round of 16 the team
+  // options per side, and later rounds the feeding match ("Winner of R16 #1").
+  const liveKo = await resolveLiveKnockoutMatchup(match);
+  const homeTeam = liveKo?.homeTeam ?? match.homeTeam;
+  const awayTeam = liveKo?.awayTeam ?? match.awayTeam;
 
   const prediction = match.predictions[0] ?? null;
   const locked = isLocked(match.kickoff) || match.status !== "SCHEDULED";
@@ -154,11 +156,18 @@ export default async function MatchDetailPage({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <Chip
-              size="small"
-              color={stageChipColor(match.stage)}
-              label={stageLabel(match.stage, match.group)}
-            />
+            <div className="flex items-center gap-2">
+              <Chip
+                size="small"
+                color={stageChipColor(match.stage)}
+                label={stageLabel(match.stage, match.group)}
+              />
+              {liveKo?.matchNo != null && (
+                <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                  #{liveKo.matchNo}
+                </span>
+              )}
+            </div>
             <span className="body body-size-small text-[color:var(--color-text-secondary)]">
               <LocalKickoff date={match.kickoff} />
             </span>
@@ -168,7 +177,7 @@ export default async function MatchDetailPage({
           <div className="grid grid-cols-3 items-center gap-4 py-4">
             <TeamBlock
               team={homeTeam}
-              fallback={liveR32?.homeFallback}
+              fallback={liveKo?.homeFallback}
               dim={loser === "home"}
             />
             <div className="flex flex-col items-center gap-1.5 text-center">
@@ -203,12 +212,12 @@ export default async function MatchDetailPage({
             </div>
             <TeamBlock
               team={awayTeam}
-              fallback={liveR32?.awayFallback}
+              fallback={liveKo?.awayFallback}
               dim={loser === "away"}
             />
           </div>
 
-          {liveR32?.provisional && (
+          {liveKo?.provisional && (
             <div className="flex items-start justify-center gap-1.5 text-center body body-size-small text-[color:var(--color-text-tertiary)] italic mb-4">
               <Info className="size-3.5 mt-0.5 shrink-0" />
               <span>Projected from current group standings — not final.</span>
@@ -332,10 +341,11 @@ export default async function MatchDetailPage({
 
 type TeamLite = { name: string; code: string; flag: string | null } | null;
 
-// For an undecided Round of 32 fixture, resolve the live matchup from current
-// group standings (same projection the bracket uses). Returns null for any
-// fixture that is already finalised or isn't an R32 slot.
-async function resolveLiveR32Matchup(match: {
+// For an undecided knockout fixture, resolve what to show from current group
+// standings (same projection the bracket uses): projected teams for the Round
+// of 32, team options for the Round of 16, and a feeding-match reference for
+// later rounds. Returns null for a group match or an already-finalised fixture.
+async function resolveLiveKnockoutMatchup(match: {
   stage: Stage;
   fdId: number;
   homeTeamId: string | null;
@@ -346,8 +356,9 @@ async function resolveLiveR32Matchup(match: {
   homeFallback: string;
   awayFallback: string;
   provisional: boolean;
+  matchNo: number | null;
 } | null> {
-  if (match.stage !== "R32" || (match.homeTeamId && match.awayTeamId)) {
+  if (match.stage === "GROUP" || (match.homeTeamId && match.awayTeamId)) {
     return null;
   }
   const [groupMatches, teams] = await withRetry(() =>
@@ -367,21 +378,20 @@ async function resolveLiveR32Matchup(match: {
       }),
     ])
   );
-  const matchup = liveR32Matchup(
-    match.fdId,
-    { homeTeamId: match.homeTeamId, awayTeamId: match.awayTeamId },
-    projectR32ByFdId(
-      groupMatches.map((m) => ({ ...m, group: m.group as string }))
-    )
+  const byId = new Map(teams.map((t) => [t.id, t]));
+  const matchup = liveKnockoutMatchup(
+    match,
+    projectR32Slots(groupMatches.map((m) => ({ ...m, group: m.group as string }))),
+    (id) => byId.get(id)?.name
   );
   if (!matchup) return null;
-  const byId = new Map(teams.map((t) => [t.id, t]));
   return {
     homeTeam: matchup.home.teamId ? byId.get(matchup.home.teamId) ?? null : null,
     awayTeam: matchup.away.teamId ? byId.get(matchup.away.teamId) ?? null : null,
     homeFallback: matchup.home.label,
     awayFallback: matchup.away.label,
     provisional: matchup.provisional,
+    matchNo: matchup.matchNo,
   };
 }
 
