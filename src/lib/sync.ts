@@ -10,6 +10,12 @@ import {
   fetchWorldCupFixturesByDate,
   type AfFixture,
 } from "@/lib/api-football";
+import { fetchCurrentOdds } from "@/lib/odds-api";
+import {
+  isoMinute,
+  normaliseName,
+  pickByTeamsAtMinute,
+} from "@/lib/match-reconcile";
 
 function mapStage(stage: FdMatch["stage"]): Stage {
   switch (stage) {
@@ -158,33 +164,13 @@ export function mapApiFootballStatus(short: string): MatchStatus | null {
 
 type LiveMatch = { id: string; kickoff: Date; homeName: string; awayName: string };
 
-// Pair a DB match with the API-Football fixture at the same kickoff minute.
-// Providers disagree on some country names — football-data.org says "Czechia"
-// where API-Football says "Czech Republic", "IR Iran" vs "Iran", etc. — so an
-// exact two-name match isn't always possible. Prefer a fixture where both teams
-// match (diacritic-insensitive, either orientation); otherwise accept one that
-// matches on a single team, but only when it's the sole same-minute fixture
-// sharing a team, so two matches kicking off simultaneously are never confused.
+// Pair a DB match with the API-Football fixture at the same kickoff minute,
+// using the shared team/kickoff reconciliation rules (see match-reconcile.ts).
 export function pickFixture(match: LiveMatch, fixtures: AfFixture[]): AfFixture | null {
-  const minute = isoMinute(match.kickoff);
-  const home = normaliseName(match.homeName);
-  const away = normaliseName(match.awayName);
-
-  const bothMatch: AfFixture[] = [];
-  const oneMatches: AfFixture[] = [];
-  for (const f of fixtures) {
-    if (isoMinute(f.date) !== minute) continue;
-    const fHome = normaliseName(f.homeName);
-    const fAway = normaliseName(f.awayName);
-    const homeHit = home !== "" && (fHome === home || fAway === home);
-    const awayHit = away !== "" && (fHome === away || fAway === away);
-    if (homeHit && awayHit) bothMatch.push(f);
-    else if (homeHit || awayHit) oneMatches.push(f);
-  }
-
-  if (bothMatch.length === 1) return bothMatch[0]!;
-  if (bothMatch.length > 1) return null; // ambiguous — never guess on scores
-  return oneMatches.length === 1 ? oneMatches[0]! : null;
+  return pickByTeamsAtMinute(
+    { homeName: match.homeName, awayName: match.awayName, kickoff: match.kickoff },
+    fixtures
+  );
 }
 
 type ScoreState = {
@@ -258,6 +244,64 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
   return { updated };
 }
 
+/**
+ * Capture pre-match odds for every upcoming game in the daily cron.
+ *
+ * Fetches the-odds-api current board once (all upcoming/live games, one credit),
+ * reconciles each not-yet-kicked-off DB match to an event via the shared
+ * team/kickoff rules (see match-reconcile.ts), and writes the averaged 1/X/2
+ * decimal odds plus `oddsUpdatedAt`. Re-running daily overwrites until kickoff
+ * freezes the last pre-match value. Matches with no confident event match are
+ * left untouched.
+ *
+ * @returns The number of matches whose odds were written.
+ */
+export async function syncOddsFromOddsApi(): Promise<{ oddsUpdated: number }> {
+  const now = new Date();
+  const matches = await prisma.match.findMany({
+    where: { kickoff: { gt: now } },
+    select: {
+      id: true,
+      kickoff: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+  if (matches.length === 0) return { oddsUpdated: 0 };
+
+  const oddsEvents = await fetchCurrentOdds();
+  const candidates = oddsEvents.map((e) => ({
+    homeName: e.homeName,
+    awayName: e.awayName,
+    date: e.date,
+    odds: e.odds,
+  }));
+
+  let oddsUpdated = 0;
+  for (const m of matches) {
+    const chosen = pickByTeamsAtMinute(
+      {
+        homeName: m.homeTeam?.name ?? "",
+        awayName: m.awayTeam?.name ?? "",
+        kickoff: m.kickoff,
+      },
+      candidates
+    );
+    if (!chosen) continue;
+    await prisma.match.update({
+      where: { id: m.id },
+      data: {
+        oddsHome: chosen.odds.home,
+        oddsDraw: chosen.odds.draw,
+        oddsAway: chosen.odds.away,
+        oddsUpdatedAt: new Date(),
+      },
+    });
+    oddsUpdated += 1;
+  }
+  return { oddsUpdated };
+}
+
 export type SyncVenuesResult = {
   matchesUpdated: number;
   matchesUnmatched: number;
@@ -268,18 +312,6 @@ function yyyymmdd(d: Date): string {
   const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
   const da = String(d.getUTCDate()).padStart(2, "0");
   return `${y}${mo}${da}`;
-}
-
-function isoMinute(d: Date | string): string {
-  return (typeof d === "string" ? d : d.toISOString()).slice(0, 16);
-}
-
-function normaliseName(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]/g, "");
 }
 
 type MatchForVenueSync = {

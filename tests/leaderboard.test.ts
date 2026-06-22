@@ -27,6 +27,9 @@ const pred = (
     stage: Stage.GROUP,
     homeScore: null,
     awayScore: null,
+    oddsHome: null,
+    oddsDraw: null,
+    oddsAway: null,
     ...match,
   },
 });
@@ -56,6 +59,8 @@ describe("summarizeMatchPoints", () => {
       livePoints: 0,
       exact: 1,
       outcome: 1,
+      earnings: 0,
+      liveEarnings: 0,
     });
   });
 
@@ -105,6 +110,8 @@ describe("summarizeMatchPoints", () => {
       livePoints: 0,
       exact: 0,
       outcome: 0,
+      earnings: 0,
+      liveEarnings: 0,
     });
   });
 
@@ -125,6 +132,86 @@ describe("summarizeMatchPoints", () => {
     expect(summary.livePoints).toBe(
       DEFAULT_SCORING.exactScore * DEFAULT_SCORING.knockoutMultiplier
     );
+  });
+});
+
+describe("summarizeMatchPoints earnings", () => {
+  it("pays out a correct outcome on a finished match at the stored odds", () => {
+    const summary = summarizeMatchPoints(
+      [
+        pred(1, 0, {
+          status: "FINISHED",
+          kickoff: KICKED_OFF,
+          homeScore: 2,
+          awayScore: 1,
+          oddsHome: 2.5,
+          oddsDraw: 3.2,
+          oddsAway: 2.8,
+        }),
+      ],
+      DEFAULT_SCORING,
+      NOW
+    );
+    expect(summary.earnings).toBe(150);
+    expect(summary.liveEarnings).toBe(0);
+  });
+
+  it("loses the full stake on a wrong finished prediction, before the points skip", () => {
+    const summary = summarizeMatchPoints(
+      [
+        pred(2, 0, {
+          status: "FINISHED",
+          kickoff: KICKED_OFF,
+          homeScore: 0,
+          awayScore: 1,
+          oddsHome: 2.5,
+          oddsDraw: 3.2,
+          oddsAway: 2.8,
+        }),
+      ],
+      DEFAULT_SCORING,
+      NOW
+    );
+    expect(summary.matchPoints).toBe(0);
+    expect(summary.earnings).toBe(-100);
+    expect(summary.liveEarnings).toBe(0);
+  });
+
+  it("settles a live match into liveEarnings, not earnings", () => {
+    const summary = summarizeMatchPoints(
+      [
+        pred(0, 0, {
+          status: "LIVE",
+          kickoff: KICKED_OFF,
+          homeScore: 0,
+          awayScore: 0,
+          oddsHome: 2.5,
+          oddsDraw: 3.0,
+          oddsAway: 2.8,
+        }),
+      ],
+      DEFAULT_SCORING,
+      NOW
+    );
+    expect(summary.earnings).toBe(0);
+    expect(summary.liveEarnings).toBe(200);
+  });
+
+  it("contributes 0 when the finished match has no stored odds", () => {
+    const summary = summarizeMatchPoints(
+      [
+        pred(1, 0, {
+          status: "FINISHED",
+          kickoff: KICKED_OFF,
+          homeScore: 2,
+          awayScore: 1,
+        }),
+      ],
+      DEFAULT_SCORING,
+      NOW
+    );
+    expect(summary.earnings).toBe(0);
+    expect(summary.liveEarnings).toBe(0);
   });
 });
 
@@ -149,6 +236,8 @@ const lbRow = (
   exact,
   outcome: 0,
   predictions: 0,
+  earnings: 0,
+  liveEarnings: 0,
 });
 
 describe("deriveActualPodium", () => {

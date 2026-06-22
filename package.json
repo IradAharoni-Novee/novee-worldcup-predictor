@@ -15,7 +15,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local prisma/seed.ts"
+    "seed": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local prisma/seed.ts",
+    "backfill-odds": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local prisma/backfill-odds.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
