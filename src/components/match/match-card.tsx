@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Lock, MapPin, Trophy } from "lucide-react";
+import { ArrowUpRight, Info, Lock, MapPin, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
@@ -19,6 +19,12 @@ export type MatchCardProps = {
   country: string | null;
   homeTeam: TeamLite;
   awayTeam: TeamLite;
+  // Bracket position labels (e.g. "2nd A") shown when a knockout team is still
+  // undecided, plus `provisional` when the teams shown are projected from live
+  // group standings rather than officially set.
+  homeFallback?: string;
+  awayFallback?: string;
+  provisional?: boolean;
   homeScore: number | null;
   awayScore: number | null;
   status: "SCHEDULED" | "LIVE" | "FINISHED";
@@ -82,6 +88,9 @@ export function MatchCard({
   country,
   homeTeam,
   awayTeam,
+  homeFallback,
+  awayFallback,
+  provisional = false,
   homeScore,
   awayScore,
   status,
@@ -134,11 +143,13 @@ export function MatchCard({
           <div className="px-4 flex flex-col gap-1.5">
             <TeamRow
               team={homeTeam}
+              fallback={homeFallback}
               right={<ScoreReadout score={homeScore} />}
               dim={loser === "home"}
             />
             <TeamRow
               team={awayTeam}
+              fallback={awayFallback}
               right={<ScoreReadout score={awayScore} />}
               dim={loser === "away"}
             />
@@ -174,11 +185,26 @@ export function MatchCard({
           initial={prediction ?? null}
           homeTeam={homeTeam}
           awayTeam={awayTeam}
+          homeFallback={homeFallback}
+          awayFallback={awayFallback}
           deadline={kickoff}
         />
       )}
 
+      {provisional && <ProvisionalNote />}
+
       <VenueLine venue={venue} city={city} country={country} />
     </Card>
+  );
+}
+
+// Shown on a knockout fixture whose teams are filled from the current group
+// standings — the matchup can still change until the group stage ends.
+function ProvisionalNote() {
+  return (
+    <div className="px-4 flex items-start gap-1.5 body body-size-small text-[color:var(--color-text-tertiary)] italic">
+      <Info className="size-3.5 mt-0.5 shrink-0" />
+      <span>Projected from current group standings — not final.</span>
+    </div>
   );
 }

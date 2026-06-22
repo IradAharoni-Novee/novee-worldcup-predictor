@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { Stage } from "@prisma/client";
 import { reconcileBracketPicks, type StoredPick } from "@/lib/bracket-validation";
 import type { ProjectedSlot } from "@/lib/r32-projection";
+import { R32_STRUCTURE } from "@/lib/r32-structure";
 
 function emptySlots(): ProjectedSlot[] {
   return Array.from({ length: 16 }, (_, slot) => ({
     slot,
+    fifaMatch: R32_STRUCTURE[slot]!.fifaMatch,
     homeId: null,
     awayId: null,
     homeLabel: "",

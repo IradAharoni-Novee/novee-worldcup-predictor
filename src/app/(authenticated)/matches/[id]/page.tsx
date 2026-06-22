@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, Info, MapPin } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { PageContainer } from "@/components/shell/page-container";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
 import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
+import { liveR32Matchup, projectR32ByFdId } from "@/lib/r32-projection";
 import { withRetry } from "@/lib/retry";
 import { scorePrediction } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
@@ -60,6 +61,12 @@ export default async function MatchDetailPage({
     })
   );
   if (!match) notFound();
+
+  // A Round of 32 fixture whose teams aren't set yet shows its live projected
+  // matchup from current group standings, with a "not final" note.
+  const liveR32 = await resolveLiveR32Matchup(match);
+  const homeTeam = liveR32?.homeTeam ?? match.homeTeam;
+  const awayTeam = liveR32?.awayTeam ?? match.awayTeam;
 
   const prediction = match.predictions[0] ?? null;
   const locked = isLocked(match.kickoff) || match.status !== "SCHEDULED";
@@ -159,7 +166,11 @@ export default async function MatchDetailPage({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 items-center gap-4 py-4">
-            <TeamBlock team={match.homeTeam} dim={loser === "home"} />
+            <TeamBlock
+              team={homeTeam}
+              fallback={liveR32?.homeFallback}
+              dim={loser === "home"}
+            />
             <div className="flex flex-col items-center gap-1.5 text-center">
               {live && <LiveBadge />}
               {showScore ? (
@@ -190,8 +201,19 @@ export default async function MatchDetailPage({
                 </div>
               )}
             </div>
-            <TeamBlock team={match.awayTeam} dim={loser === "away"} />
+            <TeamBlock
+              team={awayTeam}
+              fallback={liveR32?.awayFallback}
+              dim={loser === "away"}
+            />
           </div>
+
+          {liveR32?.provisional && (
+            <div className="flex items-start justify-center gap-1.5 text-center body body-size-small text-[color:var(--color-text-tertiary)] italic mb-4">
+              <Info className="size-3.5 mt-0.5 shrink-0" />
+              <span>Projected from current group standings — not final.</span>
+            </div>
+          )}
 
           {match.venue && (
             <div className="flex items-start justify-center gap-1.5 text-center body body-size-small text-[color:var(--color-text-secondary)] mb-4">
@@ -308,12 +330,69 @@ export default async function MatchDetailPage({
   );
 }
 
+type TeamLite = { name: string; code: string; flag: string | null } | null;
+
+// For an undecided Round of 32 fixture, resolve the live matchup from current
+// group standings (same projection the bracket uses). Returns null for any
+// fixture that is already finalised or isn't an R32 slot.
+async function resolveLiveR32Matchup(match: {
+  stage: Stage;
+  fdId: number;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+}): Promise<{
+  homeTeam: TeamLite;
+  awayTeam: TeamLite;
+  homeFallback: string;
+  awayFallback: string;
+  provisional: boolean;
+} | null> {
+  if (match.stage !== "R32" || (match.homeTeamId && match.awayTeamId)) {
+    return null;
+  }
+  const [groupMatches, teams] = await withRetry(() =>
+    Promise.all([
+      prisma.match.findMany({
+        where: { stage: "GROUP", group: { not: null } },
+        select: {
+          group: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          homeScore: true,
+          awayScore: true,
+        },
+      }),
+      prisma.team.findMany({
+        select: { id: true, name: true, code: true, flag: true },
+      }),
+    ])
+  );
+  const matchup = liveR32Matchup(
+    match.fdId,
+    { homeTeamId: match.homeTeamId, awayTeamId: match.awayTeamId },
+    projectR32ByFdId(
+      groupMatches.map((m) => ({ ...m, group: m.group as string }))
+    )
+  );
+  if (!matchup) return null;
+  const byId = new Map(teams.map((t) => [t.id, t]));
+  return {
+    homeTeam: matchup.home.teamId ? byId.get(matchup.home.teamId) ?? null : null,
+    awayTeam: matchup.away.teamId ? byId.get(matchup.away.teamId) ?? null : null,
+    homeFallback: matchup.home.label,
+    awayFallback: matchup.away.label,
+    provisional: matchup.provisional,
+  };
+}
+
 function TeamBlock({
   team,
   dim = false,
+  fallback = "TBD",
 }: {
   team: { name: string; code: string; flag: string | null } | null;
   dim?: boolean;
+  fallback?: string;
 }) {
   return (
     <div
@@ -338,8 +417,13 @@ function TeamBlock({
           ?
         </div>
       )}
-      <span className="body body-weight-medium body-size-medium text-center">
-        {team?.name ?? "TBD"}
+      <span
+        className={cn(
+          "body body-weight-medium body-size-medium text-center",
+          !team && "text-[color:var(--color-text-secondary)]"
+        )}
+      >
+        {team?.name ?? fallback}
       </span>
     </div>
   );
