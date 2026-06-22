@@ -7,7 +7,7 @@ import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { PlayerAvatar } from "@/components/ui/player-avatar";
-import { isMatchLive, stageLabel } from "@/lib/format";
+import { formatMoney, isMatchLive, stageLabel } from "@/lib/format";
 import { LocalKickoff } from "@/components/predictor/submission-deadline";
 import { getLeaderboard, getScoringConfig } from "@/lib/leaderboard";
 import { scorePrediction } from "@/lib/scoring";
@@ -229,12 +229,23 @@ export default async function UserProfilePage({
             />
           )}
         </div>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           <Stat label="Total points" value={row?.total ?? 0} />
           <Stat label="Match points" value={row?.matchPoints ?? 0} />
           <Stat label="Group points" value={row?.groupPoints ?? 0} />
           <Stat label="Bracket points" value={row?.bracketPoints ?? 0} />
           <Stat label="Awards points" value={row?.awardsPoints ?? 0} />
+          <Stat
+            label="Est. earnings"
+            value={formatMoney(row?.earnings ?? 0)}
+            valueClassName={
+              Math.round(row?.earnings ?? 0) > 0
+                ? "text-[color:var(--color-accent-success)]"
+                : Math.round(row?.earnings ?? 0) < 0
+                  ? "text-[color:var(--color-accent-danger)]"
+                  : ""
+            }
+          />
         </div>
       </Card>
 
@@ -470,13 +481,21 @@ export default async function UserProfilePage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: number | string;
+  valueClassName?: string;
+}) {
   return (
     <div>
       <p className="body body-size-small text-[color:var(--color-text-secondary)]">
         {label}
       </p>
-      <p className="heading text-3xl">{value}</p>
+      <p className={`heading text-3xl ${valueClassName ?? ""}`}>{value}</p>
     </div>
   );
 }

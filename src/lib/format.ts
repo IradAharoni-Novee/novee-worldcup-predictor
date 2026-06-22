@@ -9,6 +9,16 @@ export function isLocked(kickoff: Date, now: Date = new Date()): boolean {
   return !isAfter(kickoff, now);
 }
 
+/**
+ * Format a net amount as whole-dollar currency with a leading sign for nonzero
+ * values, e.g. `+$1,250`, `-$700`, `$0`. Used for the "estimated earnings" stat.
+ */
+export function formatMoney(n: number): string {
+  const rounded = Math.round(n);
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+  return `${sign}$${Math.abs(rounded).toLocaleString("en-US")}`;
+}
+
 // A match is "live" once it has kicked off and before it has finished. The FD
 // sync only runs once a day, so a match that kicks off after the last sync is
 // still SCHEDULED in the DB — kickoff time, not the stale status enum, is the
