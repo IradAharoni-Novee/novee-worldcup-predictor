@@ -64,154 +64,169 @@ export default async function PodiumPage() {
     myPoints = rows.find((r) => r.userId === userId)?.podiumPoints ?? 0;
   }
 
+  const showFinalPodium = settled && actualPodium.length === 3;
+  const hasSideColumn =
+    showFinalPodium || (consensus !== null && consensus.total > 0);
+
   return (
     <PageContainer title="Podium">
-      <Card className="px-4 sm:px-6 py-4 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="body body-size-small text-[color:var(--color-text-secondary)]">
-              {locked
-                ? "Picks are locked — the knockouts have started"
-                : lockTime
-                  ? "Picks lock when the knockouts start"
-                  : "No knockout fixtures scheduled yet"}
-            </p>
-            <p className="heading text-lg">
-              Call the final leaderboard top 3
-            </p>
-          </div>
-          {settled && (
-            <div className="text-right">
+      <div className={hasSideColumn ? undefined : "mx-auto w-full max-w-xl"}>
+        <Card className="px-4 sm:px-6 py-4 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="body body-size-small text-[color:var(--color-text-secondary)]">
-                Podium points
+                {locked
+                  ? "Picks are locked — the knockouts have started"
+                  : lockTime
+                    ? "Picks lock when the knockouts start"
+                    : "No knockout fixtures scheduled yet"}
               </p>
-              <p className="heading text-2xl">{myPoints}</p>
+              <p className="heading text-lg">
+                Call the final leaderboard top 3
+              </p>
             </div>
-          )}
-        </div>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="px-4 py-4 gap-3">
-          <div className="flex items-center justify-between">
-            <span className="heading text-base flex items-center gap-2">
-              <Medal className="size-4" /> Your podium
-            </span>
-            <Chip
-              size="small"
-              color="brand"
-              label={`${config.podiumExactPosition} pts exact · ${config.podiumInTop3} if on the podium`}
-            />
+            {settled && (
+              <div className="text-right">
+                <p className="body body-size-small text-[color:var(--color-text-secondary)]">
+                  Podium points
+                </p>
+                <p className="heading text-2xl">{myPoints}</p>
+              </div>
+            )}
           </div>
-          <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
-            Who finishes 1st, 2nd and 3rd overall? AI players don&apos;t count —
-            you can pick yourself.
-          </p>
-          {people.length === 0 ? (
-            <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
-              No players to pick from yet.
-            </p>
-          ) : (
-            <PodiumPickerForm
-              people={people}
-              initial={
-                myPick
-                  ? {
-                      firstId: myPick.firstId,
-                      secondId: myPick.secondId,
-                      thirdId: myPick.thirdId,
-                    }
-                  : null
-              }
-              locked={locked}
-            />
-          )}
-          {!locked && lockTime && (
-            <div className="border-t border-[color:var(--color-border-secondary)] pt-2">
-              <SubmissionDeadline deadline={lockTime} label="Locks at" />
-            </div>
-          )}
         </Card>
 
-        <div className="flex flex-col gap-4">
-          {settled && actualPodium.length === 3 && (
-            <Card className="px-4 py-4 gap-3">
-              <span className="heading text-base">Final podium</span>
-              <div className="flex flex-col gap-2">
-                {actualPodium.map((person, i) => {
-                  const predictedHere = myPick
-                    ? [myPick.firstId, myPick.secondId, myPick.thirdId][i] ===
-                      person.id
-                    : false;
-                  return (
-                    <div
-                      key={person.id}
-                      className="flex items-center gap-3 rounded-md border border-[color:var(--color-border-secondary)] px-3 py-2"
-                    >
-                      <span className="code code-size-medium w-8 shrink-0 text-[color:var(--color-text-tertiary)]">
-                        {SLOT_LABELS[i]}
-                      </span>
-                      <UserAvatar
-                        email={person.email}
-                        name={person.name}
-                        image={person.image}
-                        size={28}
-                      />
-                      <span className="body body-weight-medium body-size-small truncate flex-1">
-                        {displayName(person)}
-                      </span>
-                      {predictedHere && (
-                        <Chip size="small" color="green" label="You nailed it" />
-                      )}
-                    </div>
-                  );
-                })}
+        <div className={hasSideColumn ? "grid gap-4 md:grid-cols-2" : undefined}>
+          <Card className="px-4 py-4 gap-3">
+            <div className="flex items-center justify-between">
+              <span className="heading text-base flex items-center gap-2">
+                <Medal className="size-4" /> Your podium
+              </span>
+              <Chip
+                size="small"
+                color="brand"
+                label={`${config.podiumExactPosition} pts exact · ${config.podiumInTop3} if on the podium`}
+              />
+            </div>
+            <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
+              Who finishes 1st, 2nd and 3rd overall? AI players don&apos;t count —
+              you can pick yourself.
+            </p>
+            {people.length === 0 ? (
+              <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                No players to pick from yet.
+              </p>
+            ) : (
+              <PodiumPickerForm
+                people={people}
+                initial={
+                  myPick
+                    ? {
+                        firstId: myPick.firstId,
+                        secondId: myPick.secondId,
+                        thirdId: myPick.thirdId,
+                      }
+                    : null
+                }
+                locked={locked}
+              />
+            )}
+            {!locked && lockTime && (
+              <div className="border-t border-[color:var(--color-border-secondary)] pt-2">
+                <SubmissionDeadline deadline={lockTime} label="Locks at" />
               </div>
-            </Card>
-          )}
+            )}
+          </Card>
 
-          {consensus && consensus.total > 0 && (
-            <Card className="px-4 py-4 gap-3">
-              <div>
-                <span className="heading text-base">What the room thinks</span>
-                <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
-                  Leading pick per slot · {consensus.total} submitted
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                {SLOT_LABELS.map((label, i) => {
-                  const top = consensus.slots[i]?.[0];
-                  const person = top ? byId.get(top.userId) : undefined;
-                  return (
-                    <div key={label} className="flex items-center gap-3">
-                      <span className="code code-size-medium w-8 shrink-0 text-[color:var(--color-text-tertiary)]">
-                        {label}
-                      </span>
-                      {person && top ? (
-                        <>
+          {hasSideColumn && (
+            <div className="flex flex-col gap-4">
+              {showFinalPodium && (
+                <Card className="px-4 py-4 gap-3">
+                  <span className="heading text-base">Final podium</span>
+                  <div className="flex flex-col gap-2">
+                    {actualPodium.map((person, i) => {
+                      const predictedHere = myPick
+                        ? [myPick.firstId, myPick.secondId, myPick.thirdId][
+                            i
+                          ] === person.id
+                        : false;
+                      return (
+                        <div
+                          key={person.id}
+                          className="flex items-center gap-3 rounded-md border border-[color:var(--color-border-secondary)] px-3 py-2"
+                        >
+                          <span className="code code-size-medium w-8 shrink-0 text-[color:var(--color-text-tertiary)]">
+                            {SLOT_LABELS[i]}
+                          </span>
                           <UserAvatar
                             email={person.email}
                             name={person.name}
                             image={person.image}
-                            size={24}
+                            size={28}
                           />
-                          <span className="body body-size-small truncate flex-1">
+                          <span className="body body-weight-medium body-size-small truncate flex-1">
                             {displayName(person)}
                           </span>
-                          <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
-                            {top.count} vote{top.count === 1 ? "" : "s"}
+                          {predictedHere && (
+                            <Chip
+                              size="small"
+                              color="green"
+                              label="You nailed it"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+
+              {consensus && consensus.total > 0 && (
+                <Card className="px-4 py-4 gap-3">
+                  <div>
+                    <span className="heading text-base">
+                      What the room thinks
+                    </span>
+                    <p className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                      Leading pick per slot · {consensus.total} submitted
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {SLOT_LABELS.map((label, i) => {
+                      const top = consensus.slots[i]?.[0];
+                      const person = top ? byId.get(top.userId) : undefined;
+                      return (
+                        <div key={label} className="flex items-center gap-3">
+                          <span className="code code-size-medium w-8 shrink-0 text-[color:var(--color-text-tertiary)]">
+                            {label}
                           </span>
-                        </>
-                      ) : (
-                        <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
-                          No votes
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
+                          {person && top ? (
+                            <>
+                              <UserAvatar
+                                email={person.email}
+                                name={person.name}
+                                image={person.image}
+                                size={24}
+                              />
+                              <span className="body body-size-small truncate flex-1">
+                                {displayName(person)}
+                              </span>
+                              <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                                {top.count} vote{top.count === 1 ? "" : "s"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+                              No votes
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       </div>
