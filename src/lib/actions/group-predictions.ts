@@ -5,7 +5,6 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isGroupLocked } from "@/lib/locks";
-import { cleanupStaleBracketPicks } from "@/lib/bracket-cleanup";
 
 const inputSchema = z.object({
   group: z.string().regex(/^[A-L]$/, "Invalid group"),
@@ -86,11 +85,6 @@ export async function submitGroupPrediction(
         : {}),
     },
   });
-
-  // A new ranking in this group might shift its winners/runners-up too — and
-  // any of those moves can orphan bracket picks that referenced the old
-  // teams. Drop the stale picks now so the bracket re-renders cleanly.
-  await cleanupStaleBracketPicks(userId);
 
   revalidatePath("/groups");
   revalidatePath(`/groups/${group}`);

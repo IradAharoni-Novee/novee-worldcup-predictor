@@ -60,6 +60,31 @@ describe("computeGroupStandings", () => {
     expect(standings[2].teamId).toBe("C");
   });
 
+  it("breaks a points/GD/GF tie by head-to-head, overriding the id fallback", () => {
+    // ZZ and AA finish level on points (4), GD (0) and GF (1). ZZ beat AA, so
+    // FIFA's head-to-head rule ranks ZZ above AA even though "AA" sorts first.
+    const standings = computeGroupStandings([
+      match("ZZ", "AA", 1, 0),
+      match("C", "ZZ", 1, 0),
+      match("AA", "C", 1, 0),
+      match("ZZ", "D", 0, 0),
+      match("AA", "D", 0, 0),
+      match("C", "D", 1, 0),
+    ]);
+    expect(standings.map((s) => s.teamId)).toEqual(["C", "ZZ", "AA", "D"]);
+  });
+
+  it("seeds teams that have no finished match yet", () => {
+    const standings = computeGroupStandings(
+      [match("A", "B", 1, 0)],
+      ["A", "B", "C", "D"]
+    );
+    expect(standings).toHaveLength(4);
+    expect(standings[0]!.teamId).toBe("A");
+    const c = standings.find((s) => s.teamId === "C");
+    expect(c?.played).toBe(0);
+  });
+
   it("ignores unfinished matches (null scores)", () => {
     const standings = computeGroupStandings([
       { homeTeamId: "A", awayTeamId: "B", homeScore: null, awayScore: null },

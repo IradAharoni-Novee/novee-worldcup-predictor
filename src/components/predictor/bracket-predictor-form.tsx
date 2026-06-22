@@ -71,10 +71,14 @@ export function BracketPredictorForm({
   teamsById,
   r32Seeding,
   initialPicks,
+  staleR32Slots = [],
 }: {
   teamsById: Record<string, Team>;
   r32Seeding: SeededSlot[];
   initialPicks: InitialPick[];
+  // R32 slots whose previously-saved winner no longer fits the live matchup.
+  // Cleared per slot once the user makes a fresh pick there.
+  staleR32Slots?: number[];
 }) {
   const initial = useMemo(() => {
     const map = new Map<string, string>();
@@ -217,9 +221,26 @@ export function BracketPredictorForm({
 
   const finalWinner = picks.get(`${Stage.FINAL}:0`) ?? null;
 
+  // A flagged slot stays flagged only until the user re-picks it.
+  const staleSlots = useMemo(() => {
+    return new Set(
+      staleR32Slots.filter((slot) => !picks.has(`${Stage.R32}:${slot}`))
+    );
+  }, [picks, staleR32Slots]);
+
   return (
     <div className="flex flex-col gap-4 min-w-0">
       <SaveStatus pending={pending} status={saveStatus} />
+      {staleSlots.size > 0 && (
+        <div className="rounded-md border border-[color:var(--color-accent-warning,var(--color-border-primary))] bg-[color:var(--color-surface-secondary)] px-3 py-2">
+          <p className="body body-size-small">
+            {staleSlots.size} Round of 32{" "}
+            {staleSlots.size === 1 ? "matchup has" : "matchups have"} changed
+            since you last picked. Re-select the highlighted{" "}
+            {staleSlots.size === 1 ? "match" : "matches"}.
+          </p>
+        </div>
+      )}
       <div className="overflow-x-auto pb-4 min-w-0">
         <div className="flex items-stretch w-fit mx-auto min-h-[1100px]">
           <Round label="Round of 32" feedsNext>
@@ -231,6 +252,7 @@ export function BracketPredictorForm({
                   homeFallback={seed.homeLabel}
                   awayFallback={seed.awayLabel}
                   winnerId={picks.get(`${Stage.R32}:${seed.slot}`) ?? null}
+                  stale={staleSlots.has(seed.slot)}
                   teamsById={teamsById}
                   onPick={(teamId) => setPick(Stage.R32, seed.slot, teamId)}
                 />
@@ -422,6 +444,7 @@ function MatchCard({
   homeFallback,
   awayFallback,
   winnerId,
+  stale,
   teamsById,
   onPick,
 }: {
@@ -430,6 +453,7 @@ function MatchCard({
   homeFallback: string;
   awayFallback: string;
   winnerId: string | null;
+  stale?: boolean;
   teamsById: Record<string, Team>;
   onPick: (teamId: string | null) => void;
 }) {
@@ -437,7 +461,14 @@ function MatchCard({
   const awayTeam = awayId ? teamsById[awayId] ?? null : null;
 
   return (
-    <div className="rounded-md border border-[color:var(--color-border-primary)] overflow-hidden bg-[color:var(--color-surface-primary)] shadow-sm">
+    <div
+      className={
+        "rounded-md border overflow-hidden bg-[color:var(--color-surface-primary)] shadow-sm " +
+        (stale
+          ? "border-[color:var(--color-accent-warning,var(--color-border-primary))] ring-1 ring-[color:var(--color-accent-warning,var(--color-border-primary))]"
+          : "border-[color:var(--color-border-primary)]")
+      }
+    >
       <TeamRow
         team={homeTeam}
         fallback={homeFallback}
