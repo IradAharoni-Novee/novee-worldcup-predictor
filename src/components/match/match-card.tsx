@@ -24,6 +24,7 @@ export type MatchCardProps = {
   status: "SCHEDULED" | "LIVE" | "FINISHED";
   prediction?: { homeScore: number; awayScore: number; note?: string | null } | null;
   points?: number | null;
+  odds?: { home: number; draw: number; away: number } | null;
 };
 
 function stageChipColor(stage: MatchCardProps["stage"]): ChipColor {
@@ -47,6 +48,42 @@ function ScoreReadout({ score }: { score: number | null }) {
     <span className="code code-size-large tabular-nums w-6 text-right inline-block">
       {score ?? "—"}
     </span>
+  );
+}
+
+function OddsRow({
+  odds,
+}: {
+  odds: { home: number; draw: number; away: number };
+}) {
+  // Lowest decimal price is the bookmakers' favourite — highlight it.
+  const shortest = Math.min(odds.home, odds.draw, odds.away);
+  const cells = [
+    { label: "1", value: odds.home },
+    { label: "X", value: odds.draw },
+    { label: "2", value: odds.away },
+  ];
+  return (
+    <div className="px-4 flex items-center gap-3 body body-size-small text-[color:var(--color-text-tertiary)]">
+      <span className="shrink-0">Odds</span>
+      <span className="flex items-center gap-3">
+        {cells.map((c) => (
+          <span key={c.label} className="flex items-center gap-1">
+            <span>{c.label}</span>
+            <span
+              className={cn(
+                "code code-size-medium tabular-nums",
+                c.value === shortest
+                  ? "text-[color:var(--color-text-primary)]"
+                  : "text-[color:var(--color-text-secondary)]"
+              )}
+            >
+              {c.value.toFixed(2)}
+            </span>
+          </span>
+        ))}
+      </span>
+    </div>
   );
 }
 
@@ -87,6 +124,7 @@ export function MatchCard({
   status,
   prediction,
   points,
+  odds,
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
   const live = isMatchLive(status, kickoff);
@@ -177,6 +215,8 @@ export function MatchCard({
           deadline={kickoff}
         />
       )}
+
+      {odds && <OddsRow odds={odds} />}
 
       <VenueLine venue={venue} city={city} country={country} />
     </Card>

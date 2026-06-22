@@ -72,6 +72,11 @@ export default async function MatchesPage() {
               status={m.status}
               prediction={prediction}
               points={points}
+              odds={
+                m.oddsHome != null && m.oddsDraw != null && m.oddsAway != null
+                  ? { home: m.oddsHome, draw: m.oddsDraw, away: m.oddsAway }
+                  : null
+              }
             />
           );
         })}
