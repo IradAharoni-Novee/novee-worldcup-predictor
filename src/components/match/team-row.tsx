@@ -8,14 +8,18 @@ export type TeamLite = { name: string; code: string; flag: string | null } | nul
 // the right (a score readout when locked, a score stepper when editable).
 // Keeping the row shared guarantees the team↔score column stays aligned across
 // both states. `dim` fades the row for the losing side of a finished match.
+// `fallback` is shown when the team is unknown — a bracket position label like
+// "2nd A" for an undecided knockout slot, defaulting to "TBD".
 export function TeamRow({
   team,
   right,
   dim = false,
+  fallback = "TBD",
 }: {
   team: TeamLite;
   right: ReactNode;
   dim?: boolean;
+  fallback?: string;
 }) {
   return (
     <div
@@ -41,8 +45,13 @@ export function TeamRow({
             ?
           </span>
         )}
-        <span className="body body-size-medium truncate">
-          {team?.name ?? "TBD"}
+        <span
+          className={cn(
+            "body body-size-medium truncate",
+            !team && "text-[color:var(--color-text-secondary)]"
+          )}
+        >
+          {team?.name ?? fallback}
         </span>
       </div>
       <div className="shrink-0">{right}</div>
