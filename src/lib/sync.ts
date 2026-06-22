@@ -10,6 +10,11 @@ import {
   fetchWorldCupFixturesByDate,
   type AfFixture,
 } from "@/lib/api-football";
+import {
+  isoMinute,
+  normaliseName,
+  pickByTeamsAtMinute,
+} from "@/lib/match-reconcile";
 
 function mapStage(stage: FdMatch["stage"]): Stage {
   switch (stage) {
@@ -158,33 +163,13 @@ export function mapApiFootballStatus(short: string): MatchStatus | null {
 
 type LiveMatch = { id: string; kickoff: Date; homeName: string; awayName: string };
 
-// Pair a DB match with the API-Football fixture at the same kickoff minute.
-// Providers disagree on some country names — football-data.org says "Czechia"
-// where API-Football says "Czech Republic", "IR Iran" vs "Iran", etc. — so an
-// exact two-name match isn't always possible. Prefer a fixture where both teams
-// match (diacritic-insensitive, either orientation); otherwise accept one that
-// matches on a single team, but only when it's the sole same-minute fixture
-// sharing a team, so two matches kicking off simultaneously are never confused.
+// Pair a DB match with the API-Football fixture at the same kickoff minute,
+// using the shared team/kickoff reconciliation rules (see match-reconcile.ts).
 export function pickFixture(match: LiveMatch, fixtures: AfFixture[]): AfFixture | null {
-  const minute = isoMinute(match.kickoff);
-  const home = normaliseName(match.homeName);
-  const away = normaliseName(match.awayName);
-
-  const bothMatch: AfFixture[] = [];
-  const oneMatches: AfFixture[] = [];
-  for (const f of fixtures) {
-    if (isoMinute(f.date) !== minute) continue;
-    const fHome = normaliseName(f.homeName);
-    const fAway = normaliseName(f.awayName);
-    const homeHit = home !== "" && (fHome === home || fAway === home);
-    const awayHit = away !== "" && (fHome === away || fAway === away);
-    if (homeHit && awayHit) bothMatch.push(f);
-    else if (homeHit || awayHit) oneMatches.push(f);
-  }
-
-  if (bothMatch.length === 1) return bothMatch[0]!;
-  if (bothMatch.length > 1) return null; // ambiguous — never guess on scores
-  return oneMatches.length === 1 ? oneMatches[0]! : null;
+  return pickByTeamsAtMinute(
+    { homeName: match.homeName, awayName: match.awayName, kickoff: match.kickoff },
+    fixtures
+  );
 }
 
 type ScoreState = {
@@ -268,18 +253,6 @@ function yyyymmdd(d: Date): string {
   const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
   const da = String(d.getUTCDate()).padStart(2, "0");
   return `${y}${mo}${da}`;
-}
-
-function isoMinute(d: Date | string): string {
-  return (typeof d === "string" ? d : d.toISOString()).slice(0, 16);
-}
-
-function normaliseName(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]/g, "");
 }
 
 type MatchForVenueSync = {
