@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { PageContainer } from "@/components/shell/page-container";
-import { isMatchLive, stageLabel } from "@/lib/format";
+import { formatMoney, isMatchLive, stageLabel } from "@/lib/format";
 import { LocalKickoff } from "@/components/predictor/submission-deadline";
 import { getScoringConfig } from "@/lib/leaderboard";
 import { scorePrediction } from "@/lib/scoring";
@@ -188,6 +188,7 @@ export default async function MePage() {
 
   const currentUserRow = leaderboard.find((r) => r.userId === userId);
   const podiumPoints = currentUserRow?.podiumPoints ?? 0;
+  const earnings = currentUserRow?.earnings ?? 0;
   const total =
     matchPoints +
     groupPoints +
@@ -215,13 +216,24 @@ export default async function MePage() {
         inTop3={inTop3}
       />
       <Card className="px-4 sm:px-6">
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-7">
           <Stat label="Total points" value={total} />
           <Stat label="Match points" value={matchPoints} />
           <Stat label="Group points" value={groupPoints} />
           <Stat label="Bracket points" value={bracketScore.total} />
           <Stat label="Awards points" value={awardsScore.total} />
           <Stat label="Podium points" value={podiumPoints} />
+          <Stat
+            label="Est. earnings"
+            value={formatMoney(earnings)}
+            valueClassName={
+              Math.round(earnings) > 0
+                ? "text-[color:var(--color-accent-success)]"
+                : Math.round(earnings) < 0
+                  ? "text-[color:var(--color-accent-danger)]"
+                  : ""
+            }
+          />
         </div>
       </Card>
 
@@ -582,13 +594,21 @@ function AiScoreboard({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: number | string;
+  valueClassName?: string;
+}) {
   return (
     <div>
       <p className="body body-size-small text-[color:var(--color-text-secondary)]">
         {label}
       </p>
-      <p className="heading text-3xl">{value}</p>
+      <p className={`heading text-3xl ${valueClassName ?? ""}`}>{value}</p>
     </div>
   );
 }

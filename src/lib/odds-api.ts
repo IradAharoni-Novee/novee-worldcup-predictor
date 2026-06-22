@@ -113,9 +113,19 @@ export async function fetchCurrentOdds(): Promise<OddsEvent[]> {
   return parseOddsEvents(data);
 }
 
+/**
+ * Normalise an ISO timestamp to the second precision the-odds-api's historical
+ * `date` param requires — it rejects millisecond precision (`…:00.000Z`) with
+ * a 422 INVALID_HISTORICAL_TIMESTAMP.
+ */
+export function toHistoricalTimestamp(iso: string): string {
+  return iso.replace(/\.\d{3}(?=Z$)/, "");
+}
+
 // Closing-odds snapshot at a historical instant, for backfilling played matches.
 export async function fetchHistoricalOdds(snapshotIso: string): Promise<OddsEvent[]> {
-  const url = `${BASE_URL}/historical/sports/${SPORT_KEY}/odds?date=${snapshotIso}&${query()}`;
+  const date = toHistoricalTimestamp(snapshotIso);
+  const url = `${BASE_URL}/historical/sports/${SPORT_KEY}/odds?date=${date}&${query()}`;
   const data = (await get(url, "historical odds")) as HistoricalResponse;
   return parseOddsEvents(data.data);
 }
