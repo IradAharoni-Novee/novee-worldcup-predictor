@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { averageEventOdds, parseOddsEvents } from "@/lib/odds-api";
+import {
+  averageEventOdds,
+  parseOddsEvents,
+  toHistoricalTimestamp,
+} from "@/lib/odds-api";
+
+describe("toHistoricalTimestamp", () => {
+  it("strips milliseconds (the-odds-api rejects them with a 422)", () => {
+    expect(toHistoricalTimestamp("2026-06-11T18:55:00.000Z")).toBe(
+      "2026-06-11T18:55:00Z"
+    );
+  });
+
+  it("leaves a second-precision timestamp untouched", () => {
+    expect(toHistoricalTimestamp("2026-06-11T18:55:00Z")).toBe(
+      "2026-06-11T18:55:00Z"
+    );
+  });
+});
 
 // Two bookmakers per event so averaging is non-trivial:
 // home 1.50 & 1.60 -> 1.55, draw 4.00 & 4.40 -> 4.20, away 6.00 & 7.00 -> 6.50.
