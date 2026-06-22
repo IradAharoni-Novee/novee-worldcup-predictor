@@ -46,3 +46,43 @@ export async function getPickAggregates(matchId: string): Promise<{
 
   return { total, buckets };
 }
+
+export type PodiumConsensusEntry = { userId: string; count: number };
+
+/**
+ * Tally how the room called the leaderboard podium, one ranked list per slot
+ * (1st/2nd/3rd). Surfaced after picks lock so it never leaks live picks. `total`
+ * is the number of submitted podium predictions.
+ */
+export async function getPodiumConsensus(): Promise<{
+  total: number;
+  slots: PodiumConsensusEntry[][];
+}> {
+  const picks = await prisma.podiumPrediction.findMany({
+    select: { firstId: true, secondId: true, thirdId: true },
+  });
+
+  const slots: Map<string, number>[] = [
+    new Map(),
+    new Map(),
+    new Map(),
+  ];
+  for (const p of picks) {
+    const ids = [p.firstId, p.secondId, p.thirdId];
+    for (let i = 0; i < 3; i++) {
+      const id = ids[i];
+      const slot = slots[i];
+      if (id === undefined || slot === undefined) continue;
+      slot.set(id, (slot.get(id) ?? 0) + 1);
+    }
+  }
+
+  return {
+    total: picks.length,
+    slots: slots.map((slot) =>
+      [...slot.entries()]
+        .map(([userId, count]) => ({ userId, count }))
+        .sort((a, b) => b.count - a.count)
+    ),
+  };
+}

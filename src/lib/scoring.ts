@@ -11,6 +11,8 @@ export type ScoringConfig = {
   bracketRoundPoints: Record<KnockoutStage, number>;
   tournamentWinnerPoints: number;
   goldenBootPoints: number;
+  podiumExactPosition: number;
+  podiumInTop3: number;
 };
 
 export const DEFAULT_SCORING: ScoringConfig = {
@@ -29,6 +31,8 @@ export const DEFAULT_SCORING: ScoringConfig = {
   },
   tournamentWinnerPoints: 25,
   goldenBootPoints: 20,
+  podiumExactPosition: 10,
+  podiumInTop3: 4,
 };
 
 type MatchLike = {
