@@ -23,6 +23,15 @@ export function isMatchLive(
   return isLocked(kickoff, now);
 }
 
+/**
+ * Short display label for a user: their name, falling back to the local part of
+ * their email, truncated to fit a card. Shared by the OG card image routes.
+ */
+export function displayName(name: string | null, email: string): string {
+  const label = name?.trim() || email.split("@")[0] || "—";
+  return label.length > 22 ? `${label.slice(0, 21)}…` : label;
+}
+
 export function stageLabel(
   stage: "GROUP" | "R32" | "R16" | "QF" | "SF" | "THIRD" | "FINAL",
   group: string | null

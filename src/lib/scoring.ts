@@ -65,6 +65,23 @@ export function isKnockout(stage: Stage): boolean {
   return KNOCKOUT_STAGES.has(stage);
 }
 
+/**
+ * A "bull's eye": the prediction matches the final score exactly. Returns false
+ * for an unplayed match (null scores). Single source of truth for the rule —
+ * scorePrediction and the bull's-eye card both rely on it.
+ */
+export function isExactScore(
+  prediction: { homeScore: number; awayScore: number },
+  match: { homeScore: number | null; awayScore: number | null }
+): boolean {
+  return (
+    match.homeScore != null &&
+    match.awayScore != null &&
+    prediction.homeScore === match.homeScore &&
+    prediction.awayScore === match.awayScore
+  );
+}
+
 export function scorePrediction(
   prediction: PredictionLike,
   match: MatchLike,
@@ -74,10 +91,7 @@ export function scorePrediction(
   if (match.homeScore == null || match.awayScore == null) return 0;
 
   const base = (() => {
-    if (
-      prediction.homeScore === match.homeScore &&
-      prediction.awayScore === match.awayScore
-    ) {
+    if (isExactScore(prediction, match)) {
       return config.exactScore;
     }
     if (
