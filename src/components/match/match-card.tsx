@@ -34,6 +34,9 @@ export type MatchCardProps = {
   prediction?: { homeScore: number; awayScore: number; note?: string | null } | null;
   points?: number | null;
   odds?: { home: number; draw: number; away: number } | null;
+  // Marks this card as the "jump to recent matches" scroll target — the first
+  // upcoming/live match after a run of finished ones.
+  recentAnchor?: boolean;
 };
 
 function stageChipColor(stage: MatchCardProps["stage"]): ChipColor {
@@ -138,6 +141,7 @@ export function MatchCard({
   prediction,
   points,
   odds,
+  recentAnchor = false,
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
   const live = isMatchLive(status, kickoff);
@@ -148,7 +152,10 @@ export function MatchCard({
         : "home"
       : null;
   return (
-    <Card className="gap-3 py-4 hover:border-[color:var(--color-border-hover)] transition-colors">
+    <Card
+      {...(recentAnchor && { id: "recent-matches", "data-recent-matches": true })}
+      className="gap-3 py-4 scroll-mt-20 hover:border-[color:var(--color-border-hover)] transition-colors"
+    >
       <div className="flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Chip
