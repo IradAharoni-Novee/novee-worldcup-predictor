@@ -2,6 +2,7 @@ import { PageContainer } from "@/components/shell/page-container";
 import { MatchCard } from "@/components/match/match-card";
 import type { TeamLite } from "@/components/match/team-row";
 import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
+import { JumpToRecent } from "@/components/match/jump-to-recent";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { scorePrediction } from "@/lib/scoring";
@@ -90,6 +91,12 @@ export default async function MatchesPage() {
     isMatchLive(m.status, m.kickoff, now)
   );
 
+  // Matches are ordered by kickoff, so finished games cluster at the top. Find
+  // the first upcoming/live one and offer a jump only when finished games
+  // precede it.
+  const firstUpcomingIndex = matches.findIndex((m) => m.status !== "FINISHED");
+  const canJumpToRecent = firstUpcomingIndex > 0;
+
   function render(list: typeof matches) {
     if (list.length === 0) {
       return (
@@ -102,7 +109,7 @@ export default async function MatchesPage() {
     }
     return (
       <div className="grid gap-3 md:grid-cols-2">
-        {list.map((m) => {
+        {list.map((m, idx) => {
           const prediction = m.predictions?.[0] ?? null;
           const points =
             m.status === "FINISHED"
@@ -135,6 +142,7 @@ export default async function MatchesPage() {
               status={m.status}
               prediction={prediction}
               points={points}
+              recentAnchor={canJumpToRecent && idx === firstUpcomingIndex}
               odds={
                 m.oddsHome != null && m.oddsDraw != null && m.oddsAway != null
                   ? { home: m.oddsHome, draw: m.oddsDraw, away: m.oddsAway }
@@ -150,6 +158,7 @@ export default async function MatchesPage() {
   return (
     <PageContainer title="Matches">
       {hasLiveMatch && <LiveScoreRefresher />}
+      {canJumpToRecent && <JumpToRecent />}
       {render(matches)}
     </PageContainer>
   );
