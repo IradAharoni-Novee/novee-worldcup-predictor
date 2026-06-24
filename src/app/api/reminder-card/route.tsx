@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
+import { displayName } from "@/lib/format";
 import { getLeaderboard } from "@/lib/leaderboard";
 import {
   getLeaderboardSnapshot,
@@ -16,11 +17,6 @@ export const dynamic = "force-dynamic";
 const WIDTH = 1440;
 const HEIGHT = 810;
 const MEDALS = ["🥇", "🥈", "🥉"];
-
-function displayName(name: string | null, email: string): string {
-  const label = name?.trim() || email.split("@")[0] || "—";
-  return label.length > 22 ? `${label.slice(0, 21)}…` : label;
-}
 
 async function loadTop3(dateParam: string | null) {
   // A valid ?d= with a stored snapshot renders that day's frozen standings.
