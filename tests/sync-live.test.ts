@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { MatchStatus } from "@prisma/client";
-import { mapApiFootballStatus, pickFixture, reconcileScore } from "@/lib/sync";
+import {
+  mapApiFootballStatus,
+  pickFixture,
+  reconcileScore,
+  reconcileTeamId,
+} from "@/lib/sync";
 import type { AfFixture } from "@/lib/api-football";
 
 function fixture(overrides: Partial<AfFixture>): AfFixture {
@@ -126,5 +131,24 @@ describe("reconcileScore", () => {
 
   it("does not block a fresh scheduled match with no progress yet", () => {
     expect(reconcileScore(fdNothing, fdNothing)).toEqual(fdNothing);
+  });
+});
+
+describe("reconcileTeamId", () => {
+  it("takes the incoming team for a brand-new match", () => {
+    expect(reconcileTeamId("team-a", undefined)).toBe("team-a");
+  });
+
+  it("keeps the known knockout team when FD reports none yet", () => {
+    expect(reconcileTeamId(null, "team-a")).toBe("team-a");
+  });
+
+  it("accepts FD's team once it carries one", () => {
+    expect(reconcileTeamId("team-b", "team-a")).toBe("team-b");
+  });
+
+  it("stays null when neither side has a team", () => {
+    expect(reconcileTeamId(null, null)).toBeNull();
+    expect(reconcileTeamId(null, undefined)).toBeNull();
   });
 });

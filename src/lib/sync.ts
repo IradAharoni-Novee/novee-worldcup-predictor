@@ -96,11 +96,19 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   });
   const teamIdByFd = new Map(allTeams.map((t) => [t.fdId, t.id]));
 
-  // Current score/status per match, so a lagging FD feed can't overwrite scores
-  // the per-minute live sync already wrote (see reconcileScore).
+  // Current score/status/teams per match, so a lagging FD feed can't overwrite
+  // scores the per-minute live sync already wrote (see reconcileScore) or null
+  // out knockout teams we already know (see reconcileTeamId).
   const existing = await prisma.match.findMany({
     where: { fdId: { in: matches.map((m) => m.id) } },
-    select: { fdId: true, status: true, homeScore: true, awayScore: true },
+    select: {
+      fdId: true,
+      status: true,
+      homeScore: true,
+      awayScore: true,
+      homeTeamId: true,
+      awayTeamId: true,
+    },
   });
   const existingByFd = new Map(existing.map((m) => [m.fdId, m]));
 
@@ -122,8 +130,8 @@ export async function syncFromFootballData(): Promise<SyncResult> {
       stage: mapStage(m.stage),
       group: groupCode(m.group),
       kickoff: new Date(m.utcDate),
-      homeTeamId: homeId,
-      awayTeamId: awayId,
+      homeTeamId: reconcileTeamId(homeId, prev?.homeTeamId),
+      awayTeamId: reconcileTeamId(awayId, prev?.awayTeamId),
       homeScore: score.home,
       awayScore: score.away,
       status: score.status,
@@ -197,6 +205,20 @@ export function reconcileScore(incoming: ScoreState, existing: ScoreState | null
     existing.home !== null ||
     existing.away !== null;
   return incomingHasNothing && existingHasProgress ? existing : incoming;
+}
+
+// Decide which team to keep for a fixture's side. football-data.org's free tier
+// reports knockout fixtures with null teams long after the matchup is decided —
+// the same lag reconcileScore guards against for scores. Once a knockout match
+// has its real teams (from a later FD payload or written directly), a stale feed
+// must not wipe them back to "TBD". So keep the existing team whenever the
+// incoming side is null; a non-null incoming value still wins, letting the first
+// real assignment — or a genuine correction — propagate.
+export function reconcileTeamId(
+  incoming: string | null,
+  existing: string | null | undefined
+): string | null {
+  return incoming ?? existing ?? null;
 }
 
 // Per-minute live-score sync. Pulls current scores + status from API-Football
