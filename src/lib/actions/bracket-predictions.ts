@@ -6,6 +6,8 @@ import { Stage } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isBracketLocked } from "@/lib/locks";
+import { projectR32Slots } from "@/lib/r32-projection";
+import { reconcileBracketPicks } from "@/lib/bracket-validation";
 
 const KNOCKOUT_STAGES = ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] as const;
 const stageSchema = z.enum(KNOCKOUT_STAGES);
@@ -72,13 +74,41 @@ export async function submitBracketPicks(
     teamsByRound.set(p.round, existing);
   }
 
+  // Enforce the bracket tree server-side. The form only ever offers the two
+  // teams that flow into a slot, but a raw API payload can put any team in any
+  // slot — and since scoring is slot-independent, an off-slot team would still
+  // score, letting a user "pick both teams of a match" and always win. Project
+  // the live Round of 32 from real group results (the same projection the page
+  // uses) and keep only picks that fit the cascading matchups.
+  const groupMatches = await prisma.match.findMany({
+    where: { stage: "GROUP", group: { not: null } },
+    select: {
+      group: true,
+      homeTeamId: true,
+      awayTeamId: true,
+      homeScore: true,
+      awayScore: true,
+    },
+  });
+  const r32Slots = projectR32Slots(
+    groupMatches.map((m) => ({ ...m, group: m.group as string }))
+  );
+  const { valid } = reconcileBracketPicks(
+    r32Slots,
+    parsed.data.picks.map((p) => ({
+      round: p.round as Stage,
+      slot: p.slot,
+      teamId: p.teamId,
+    }))
+  );
+
   const userId = session.user.id;
   await prisma.$transaction([
     prisma.bracketPick.deleteMany({ where: { userId } }),
     prisma.bracketPick.createMany({
-      data: parsed.data.picks.map((p) => ({
+      data: valid.map((p) => ({
         userId,
-        round: p.round as Stage,
+        round: p.round,
         slot: p.slot,
         teamId: p.teamId,
       })),
