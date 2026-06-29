@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { Stage } from "@prisma/client";
 import {
   DEFAULT_SCORING,
+  scoreMatchTotal,
   scorePrediction,
+  scoreShootoutBonus,
   summarize,
 } from "@/lib/scoring";
 
@@ -115,5 +117,142 @@ describe("summarize", () => {
       outcome: 1,
       predictions: 4,
     });
+  });
+});
+
+describe("scoreShootoutBonus", () => {
+  // A knockout decided on penalties: 1–1 after 120', team A (home) advanced.
+  const penaltyMatch = {
+    stage: Stage.R32,
+    homeTeamId: "A",
+    awayTeamId: "B",
+    homeScore: 1,
+    awayScore: 1,
+    advancingTeamId: "A",
+  };
+
+  it("awards the bonus for a decisive prediction of the side that advanced", () => {
+    // Predicted A to win 2–1 → implied advancer A → correct.
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 2, awayScore: 1, shootoutWinnerTeamId: null },
+        penaltyMatch
+      )
+    ).toBe(DEFAULT_SCORING.shootoutBonus);
+  });
+
+  it("awards the bonus for a drawn prediction with the correct shootout pick", () => {
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 1, awayScore: 1, shootoutWinnerTeamId: "A" },
+        penaltyMatch
+      )
+    ).toBe(DEFAULT_SCORING.shootoutBonus);
+  });
+
+  it("gives nothing for a drawn prediction with the wrong (or no) shootout pick", () => {
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 1, awayScore: 1, shootoutWinnerTeamId: "B" },
+        penaltyMatch
+      )
+    ).toBe(0);
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 0, awayScore: 0, shootoutWinnerTeamId: null },
+        penaltyMatch
+      )
+    ).toBe(0);
+  });
+
+  it("gives nothing for a decisive prediction of the losing side", () => {
+    // Predicted B to win 2–1 → implied advancer B → A advanced → no bonus.
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 1, awayScore: 2, shootoutWinnerTeamId: null },
+        penaltyMatch
+      )
+    ).toBe(0);
+  });
+
+  it("gives nothing for a knockout decided in 90'/extra time (decisive score)", () => {
+    // 2–1, A advanced — not a shootout, so the outcome points already cover it.
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 2, awayScore: 1, shootoutWinnerTeamId: null },
+        {
+          stage: Stage.R32,
+          homeTeamId: "A",
+          awayTeamId: "B",
+          homeScore: 2,
+          awayScore: 1,
+          advancingTeamId: "A",
+        }
+      )
+    ).toBe(0);
+  });
+
+  it("gives nothing for a group match", () => {
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 1, awayScore: 1, shootoutWinnerTeamId: "A" },
+        {
+          stage: Stage.GROUP,
+          homeTeamId: "A",
+          awayTeamId: "B",
+          homeScore: 1,
+          awayScore: 1,
+          advancingTeamId: null,
+        }
+      )
+    ).toBe(0);
+  });
+
+  it("respects a custom bonus value", () => {
+    expect(
+      scoreShootoutBonus(
+        { homeScore: 2, awayScore: 1, shootoutWinnerTeamId: null },
+        penaltyMatch,
+        { ...DEFAULT_SCORING, shootoutBonus: 5 }
+      )
+    ).toBe(5);
+  });
+});
+
+describe("scoreMatchTotal", () => {
+  it("adds the scoreline points and the shootout bonus", () => {
+    // Exact 1–1 knockout (3×2=6) plus the correct shootout pick.
+    expect(
+      scoreMatchTotal(
+        { homeScore: 1, awayScore: 1, shootoutWinnerTeamId: "A" },
+        {
+          stage: Stage.R32,
+          homeTeamId: "A",
+          awayTeamId: "B",
+          homeScore: 1,
+          awayScore: 1,
+          advancingTeamId: "A",
+        }
+      )
+    ).toBe(
+      DEFAULT_SCORING.exactScore * DEFAULT_SCORING.knockoutMultiplier +
+        DEFAULT_SCORING.shootoutBonus
+    );
+  });
+
+  it("is just the scoreline points when no bonus applies", () => {
+    expect(
+      scoreMatchTotal(
+        { homeScore: 2, awayScore: 1, shootoutWinnerTeamId: null },
+        {
+          stage: Stage.GROUP,
+          homeTeamId: "A",
+          awayTeamId: "B",
+          homeScore: 2,
+          awayScore: 1,
+          advancingTeamId: null,
+        }
+      )
+    ).toBe(DEFAULT_SCORING.exactScore);
   });
 });

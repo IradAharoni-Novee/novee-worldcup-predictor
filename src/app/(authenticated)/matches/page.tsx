@@ -5,7 +5,7 @@ import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
 import { JumpToRecent } from "@/components/match/jump-to-recent";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { scorePrediction } from "@/lib/scoring";
+import { scoreMatchTotal } from "@/lib/scoring";
 import { isMatchLive } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
 import { liveKnockoutMatchup } from "@/lib/knockout-projection";
@@ -26,7 +26,12 @@ export default async function MatchesPage() {
           predictions: userId
             ? {
                 where: { userId },
-                select: { homeScore: true, awayScore: true, note: true },
+                select: {
+                  homeScore: true,
+                  awayScore: true,
+                  shootoutWinnerTeamId: true,
+                  note: true,
+                },
               }
             : false,
         },
@@ -113,10 +118,13 @@ export default async function MatchesPage() {
           const prediction = m.predictions?.[0] ?? null;
           const points =
             m.status === "FINISHED"
-              ? scorePrediction(prediction, {
+              ? scoreMatchTotal(prediction, {
                   stage: m.stage,
+                  homeTeamId: m.homeTeamId,
+                  awayTeamId: m.awayTeamId,
                   homeScore: m.homeScore,
                   awayScore: m.awayScore,
+                  advancingTeamId: m.advancingTeamId,
                 })
               : null;
           const { homeTeam, awayTeam, homeFallback, awayFallback, provisional, matchNo } =
@@ -134,6 +142,8 @@ export default async function MatchesPage() {
               country={m.country}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
+              homeTeamId={m.homeTeamId}
+              awayTeamId={m.awayTeamId}
               homeFallback={homeFallback}
               awayFallback={awayFallback}
               provisional={provisional}

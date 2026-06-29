@@ -19,14 +19,19 @@ const pred = (
   match: Partial<Pred["match"]> & {
     status: Pred["match"]["status"];
     kickoff: Date;
-  }
+  },
+  shootoutWinnerTeamId: string | null = null
 ): Pred => ({
   homeScore: home,
   awayScore: away,
+  shootoutWinnerTeamId,
   match: {
     stage: Stage.GROUP,
+    homeTeamId: null,
+    awayTeamId: null,
     homeScore: null,
     awayScore: null,
+    advancingTeamId: null,
     oddsHome: null,
     oddsDraw: null,
     oddsAway: null,
@@ -130,6 +135,71 @@ describe("summarizeMatchPoints", () => {
       NOW
     );
     expect(summary.livePoints).toBe(
+      DEFAULT_SCORING.exactScore * DEFAULT_SCORING.knockoutMultiplier
+    );
+  });
+});
+
+describe("summarizeMatchPoints shootout bonus", () => {
+  const penaltyMatch = {
+    stage: Stage.R32,
+    status: "FINISHED" as const,
+    kickoff: KICKED_OFF,
+    homeScore: 1,
+    awayScore: 1,
+    homeTeamId: "A",
+    awayTeamId: "B",
+    advancingTeamId: "A",
+  };
+
+  it("awards the bonus for the correct side via a decisive prediction, not counting exact/outcome", () => {
+    // Predicted A to win 2–1; match was 1–1 and A advanced on penalties.
+    const summary = summarizeMatchPoints([pred(2, 1, penaltyMatch)], DEFAULT_SCORING, NOW);
+    expect(summary.matchPoints).toBe(DEFAULT_SCORING.shootoutBonus);
+    expect(summary.exact).toBe(0);
+    expect(summary.outcome).toBe(0);
+  });
+
+  it("stacks the bonus on top of a correct draw prediction", () => {
+    // Predicted 1–1 with A to win the shootout; exact 1–1 ×2 plus the bonus.
+    const summary = summarizeMatchPoints([pred(1, 1, penaltyMatch, "A")], DEFAULT_SCORING, NOW);
+    expect(summary.matchPoints).toBe(
+      DEFAULT_SCORING.exactScore * DEFAULT_SCORING.knockoutMultiplier +
+        DEFAULT_SCORING.shootoutBonus
+    );
+    expect(summary.exact).toBe(1);
+  });
+
+  it("withholds the bonus when the predicted side lost the shootout", () => {
+    // Predicted 0–0 + B on pens, but it was 1–1 and A advanced: a correct draw
+    // outcome (×2) but not exact, and no bonus for the wrong shootout side.
+    const summary = summarizeMatchPoints([pred(0, 0, penaltyMatch, "B")], DEFAULT_SCORING, NOW);
+    expect(summary.matchPoints).toBe(
+      DEFAULT_SCORING.correctOutcome * DEFAULT_SCORING.knockoutMultiplier
+    );
+    expect(summary.outcome).toBe(1);
+  });
+
+  it("gives no bonus for an extra-time (non-penalty) knockout result", () => {
+    // 2–1 after ET, A advanced — decisive score, so the normal outcome points
+    // already cover the side and there's no separate bonus.
+    const summary = summarizeMatchPoints(
+      [
+        pred(2, 1, {
+          stage: Stage.R32,
+          status: "FINISHED",
+          kickoff: KICKED_OFF,
+          homeScore: 2,
+          awayScore: 1,
+          homeTeamId: "A",
+          awayTeamId: "B",
+          advancingTeamId: "A",
+        }),
+      ],
+      DEFAULT_SCORING,
+      NOW
+    );
+    expect(summary.matchPoints).toBe(
       DEFAULT_SCORING.exactScore * DEFAULT_SCORING.knockoutMultiplier
     );
   });

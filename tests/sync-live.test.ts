@@ -17,6 +17,7 @@ function fixture(overrides: Partial<AfFixture>): AfFixture {
     homeGoals: 1,
     awayGoals: 0,
     statusShort: "1H",
+    winnerSide: null,
     ...overrides,
   };
 }

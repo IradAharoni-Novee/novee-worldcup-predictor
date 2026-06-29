@@ -11,6 +11,7 @@ import {
   type AfFixture,
 } from "@/lib/api-football";
 import { fetchCurrentOdds } from "@/lib/odds-api";
+import { isKnockout } from "@/lib/scoring";
 import {
   isoMinute,
   normaliseName,
@@ -55,6 +56,19 @@ function groupCode(group: string | null): string | null {
   // Normalise both to a single letter.
   const m = /^(?:Group\s+|GROUP_)([A-Z])$/.exec(group);
   return m?.[1] ?? group;
+}
+
+// Resolve football-data.org's winner code to one of our team ids. FD reports the
+// shootout winner here for penalty-decided knockouts, so it captures advancement
+// the (drawn) score can't. Returns null for draws or undecided matches.
+function fdWinnerToTeamId(
+  winner: FdMatch["score"]["winner"],
+  homeTeamId: string | null,
+  awayTeamId: string | null
+): string | null {
+  if (winner === "HOME_TEAM") return homeTeamId;
+  if (winner === "AWAY_TEAM") return awayTeamId;
+  return null;
 }
 
 export type SyncResult = {
@@ -108,6 +122,7 @@ export async function syncFromFootballData(): Promise<SyncResult> {
       awayScore: true,
       homeTeamId: true,
       awayTeamId: true,
+      advancingTeamId: true,
     },
   });
   const existingByFd = new Map(existing.map((m) => [m.fdId, m]));
@@ -126,14 +141,24 @@ export async function syncFromFootballData(): Promise<SyncResult> {
         ? { status: prev.status, home: prev.homeScore, away: prev.awayScore }
         : null
     );
+    const stage = mapStage(m.stage);
+    const homeTeamId = reconcileTeamId(homeId, prev?.homeTeamId);
+    const awayTeamId = reconcileTeamId(awayId, prev?.awayTeamId);
+    // Advancement only applies to knockouts. As with score/team, a lagging FD
+    // feed that hasn't reported a winner yet (null) must not wipe a value the
+    // live sync already wrote — keep the existing one until FD carries a winner.
+    const incomingAdvancing = isKnockout(stage)
+      ? fdWinnerToTeamId(m.score.winner, homeTeamId, awayTeamId)
+      : null;
     const fields = {
-      stage: mapStage(m.stage),
+      stage,
       group: groupCode(m.group),
       kickoff: new Date(m.utcDate),
-      homeTeamId: reconcileTeamId(homeId, prev?.homeTeamId),
-      awayTeamId: reconcileTeamId(awayId, prev?.awayTeamId),
+      homeTeamId,
+      awayTeamId,
       homeScore: score.home,
       awayScore: score.away,
+      advancingTeamId: incomingAdvancing ?? prev?.advancingTeamId ?? null,
       status: score.status,
     };
     await prisma.match.upsert({
@@ -170,11 +195,24 @@ export function mapApiFootballStatus(short: string): MatchStatus | null {
   }
 }
 
-type LiveMatch = { id: string; kickoff: Date; homeName: string; awayName: string };
+type LiveMatch = {
+  id: string;
+  kickoff: Date;
+  homeName: string;
+  awayName: string;
+  stage: Stage;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+};
 
 // Pair a DB match with the API-Football fixture at the same kickoff minute,
 // using the shared team/kickoff reconciliation rules (see match-reconcile.ts).
-export function pickFixture(match: LiveMatch, fixtures: AfFixture[]): AfFixture | null {
+// Takes only the fields it reconciles on, so callers (and tests) needn't supply
+// the rest of a LiveMatch.
+export function pickFixture(
+  match: { homeName: string; awayName: string; kickoff: Date },
+  fixtures: AfFixture[]
+): AfFixture | null {
   return pickByTeamsAtMinute(
     { homeName: match.homeName, awayName: match.awayName, kickoff: match.kickoff },
     fixtures
@@ -233,6 +271,9 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
     select: {
       id: true,
       kickoff: true,
+      stage: true,
+      homeTeamId: true,
+      awayTeamId: true,
       homeTeam: { select: { name: true } },
       awayTeam: { select: { name: true } },
     },
@@ -244,6 +285,9 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
     kickoff: m.kickoff,
     homeName: m.homeTeam?.name ?? "",
     awayName: m.awayTeam?.name ?? "",
+    stage: m.stage,
+    homeTeamId: m.homeTeamId,
+    awayTeamId: m.awayTeamId,
   }));
 
   // UTC date per kickoff (usually one); the date feed returns every match that
@@ -257,9 +301,22 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
     if (!fixture) continue;
     const status = mapApiFootballStatus(fixture.statusShort);
     if (!status) continue;
+    // Only knockouts have an advancer; leave it untouched (undefined → Prisma
+    // skips it) until the fixture reports a winning side, including ET/penalties.
+    const advancingTeamId =
+      fixture.winnerSide && isKnockout(m.stage)
+        ? fixture.winnerSide === "HOME"
+          ? m.homeTeamId
+          : m.awayTeamId
+        : undefined;
     const res = await prisma.match.updateMany({
       where: { id: m.id },
-      data: { homeScore: fixture.homeGoals, awayScore: fixture.awayGoals, status },
+      data: {
+        homeScore: fixture.homeGoals,
+        awayScore: fixture.awayGoals,
+        status,
+        advancingTeamId,
+      },
     });
     updated += res.count;
   }

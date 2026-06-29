@@ -20,7 +20,7 @@ import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
 import { liveKnockoutMatchup } from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
-import { scorePrediction } from "@/lib/scoring";
+import { isKnockout, scoreMatchTotal } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
 import { veeveeLine } from "@/lib/veevee-voice";
 import { getPickAggregates } from "@/lib/pick-aggregates";
@@ -86,11 +86,28 @@ export default async function MatchDetailPage({
   const locationParts = [match.city, match.country].filter(Boolean);
   const points =
     match.status === "FINISHED"
-      ? scorePrediction(prediction, {
+      ? scoreMatchTotal(prediction, {
           stage: match.stage,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
           homeScore: match.homeScore,
           awayScore: match.awayScore,
+          advancingTeamId: match.advancingTeamId,
         })
+      : null;
+
+  // A knockout left level at 120' but with an advancer was decided on penalties.
+  const advancerName =
+    isKnockout(match.stage) &&
+    match.status === "FINISHED" &&
+    hasScore &&
+    match.homeScore === match.awayScore &&
+    match.advancingTeamId != null
+      ? match.advancingTeamId === match.homeTeamId
+        ? homeTeam?.name ?? "Home"
+        : match.advancingTeamId === match.awayTeamId
+          ? awayTeam?.name ?? "Away"
+          : null
       : null;
 
   // After kickoff, surface everyone's hot takes (attributed to their authors)
@@ -217,6 +234,12 @@ export default async function MatchDetailPage({
             />
           </div>
 
+          {advancerName && (
+            <p className="text-center body body-size-small text-[color:var(--color-text-secondary)] mb-4">
+              {advancerName} advanced on penalties
+            </p>
+          )}
+
           {liveKo?.provisional && (
             <div className="flex items-start justify-center gap-1.5 text-center body body-size-small text-[color:var(--color-text-tertiary)] italic mb-4">
               <Info className="size-3.5 mt-0.5 shrink-0" />
@@ -258,6 +281,11 @@ export default async function MatchDetailPage({
             matchId={match.id}
             initial={prediction}
             locked={locked}
+            knockout={isKnockout(match.stage)}
+            homeTeamId={match.homeTeamId}
+            awayTeamId={match.awayTeamId}
+            homeTeamName={homeTeam?.name ?? "Home"}
+            awayTeamName={awayTeam?.name ?? "Away"}
           />
         </CardContent>
       </Card>

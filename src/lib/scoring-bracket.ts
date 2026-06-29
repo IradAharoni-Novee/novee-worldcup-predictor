@@ -12,10 +12,10 @@ export const KNOCKOUT_STAGES: readonly KnockoutStage[] = [
 
 export type KnockoutMatch = {
   stage: Stage;
-  homeTeamId: string | null;
-  awayTeamId: string | null;
-  homeScore: number | null;
-  awayScore: number | null;
+  // The team that advanced, including extra-time and penalty-shootout results.
+  // Synced from the feed's winner field — penalty winners aren't derivable from
+  // the (drawn) stored score, so this is the single source of who went through.
+  advancingTeamId: string | null;
 };
 
 export type BracketPick = {
@@ -37,23 +37,10 @@ function isKnockoutStage(stage: Stage): stage is KnockoutStage {
   return stage !== "GROUP";
 }
 
-function winningTeamId(m: KnockoutMatch): string | null {
-  if (
-    m.homeTeamId == null ||
-    m.awayTeamId == null ||
-    m.homeScore == null ||
-    m.awayScore == null
-  ) {
-    return null;
-  }
-  if (m.homeScore > m.awayScore) return m.homeTeamId;
-  if (m.awayScore > m.homeScore) return m.awayTeamId;
-  return null;
-}
-
 // advancers[stage] = teams that won their match at `stage` (i.e., advanced past
-// that round). For a user pick of (round=R32, slot=N, teamId=X), the pick is
-// correct when X is in advancers.R32 — meaning X won an R32 match.
+// that round), taken from the synced `advancingTeamId` so penalty-shootout
+// winners count too. For a user pick of (round=R32, slot=N, teamId=X), the pick
+// is correct when X is in advancers.R32 — meaning X won an R32 match.
 export function computeAdvancers(
   matches: KnockoutMatch[]
 ): Record<KnockoutStage, Set<string>> {
@@ -68,9 +55,8 @@ export function computeAdvancers(
 
   for (const m of matches) {
     if (!isKnockoutStage(m.stage)) continue;
-    const winner = winningTeamId(m);
-    if (!winner) continue;
-    advancers[m.stage].add(winner);
+    if (m.advancingTeamId == null) continue;
+    advancers[m.stage].add(m.advancingTeamId);
   }
 
   return advancers;

@@ -13,6 +13,7 @@ const NOTE_MAX = 80;
 type Initial = {
   homeScore: number;
   awayScore: number;
+  shootoutWinnerTeamId?: string | null;
   note?: string | null;
 } | null;
 
@@ -33,6 +34,9 @@ export function InlineScoreEditor({
   homeFallback,
   awayFallback,
   deadline,
+  knockout,
+  homeTeamId,
+  awayTeamId,
 }: {
   matchId: string;
   initial: Initial;
@@ -41,25 +45,39 @@ export function InlineScoreEditor({
   homeFallback?: string;
   awayFallback?: string;
   deadline: Date;
+  knockout: boolean;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
 }) {
   const initialHome = initial?.homeScore ?? 0;
   const initialAway = initial?.awayScore ?? 0;
   const initialNote = initial?.note ?? "";
+  const initialShootout = initial?.shootoutWinnerTeamId ?? "";
   const [home, setHome] = useState(initialHome);
   const [away, setAway] = useState(initialAway);
   const [note, setNote] = useState(initialNote);
+  const [shootout, setShootout] = useState<string | null>(
+    initial?.shootoutWinnerTeamId ?? null
+  );
   const [pending, startTransition] = useTransition();
+
+  // A shootout winner only matters for a knockout predicted level with known
+  // teams. `currentShootout` is what we persist — empty unless that holds.
+  const showShootout =
+    knockout && home === away && homeTeamId != null && awayTeamId != null;
+  const currentShootout = showShootout ? shootout ?? "" : "";
   const [status, setStatus] = useState<
     "idle" | "saved" | { error: string }
   >("idle");
   const [historicGlyph, setHistoricGlyph] = useState<string | null>(null);
-  // Track the (homeScore, awayScore, note) the server already has. Seeded to
-  // the displayed values so the initial mount is a no-op — only real user
-  // edits trigger a save.
-  const lastSavedRef = useRef<readonly [number, number, string]>([
+  // Track the (homeScore, awayScore, note, shootoutWinnerTeamId) the server
+  // already has. Seeded to the displayed values so the initial mount is a no-op
+  // — only real user edits trigger a save.
+  const lastSavedRef = useRef<readonly [number, number, string, string]>([
     initialHome,
     initialAway,
     initialNote,
+    initialShootout,
   ]);
   // Toast only on the first save per editor mount, so the auto-save on every
   // stepper click doesn't spam VeeVee.
@@ -76,8 +94,13 @@ export function InlineScoreEditor({
   }, [home, away]);
 
   useEffect(() => {
-    const [savedHome, savedAway, savedNote] = lastSavedRef.current;
-    if (savedHome === home && savedAway === away && savedNote === note) {
+    const [savedHome, savedAway, savedNote, savedShootout] = lastSavedRef.current;
+    if (
+      savedHome === home &&
+      savedAway === away &&
+      savedNote === note &&
+      savedShootout === currentShootout
+    ) {
       return;
     }
     const timer = setTimeout(() => {
@@ -86,10 +109,11 @@ export function InlineScoreEditor({
         fd.set("matchId", matchId);
         fd.set("homeScore", String(home));
         fd.set("awayScore", String(away));
+        fd.set("shootoutWinnerTeamId", currentShootout);
         fd.set("note", note);
         const result = await submitPrediction(null, fd);
         if (result.ok) {
-          lastSavedRef.current = [home, away, note];
+          lastSavedRef.current = [home, away, note, currentShootout];
           setStatus("saved");
           if (!hasToastedRef.current) {
             hasToastedRef.current = true;
@@ -102,7 +126,7 @@ export function InlineScoreEditor({
     }, 600);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [home, away, note]);
+  }, [home, away, note, currentShootout]);
 
   return (
     <div className="px-4 flex flex-col gap-2.5">
@@ -130,6 +154,27 @@ export function InlineScoreEditor({
           }
         />
       </div>
+      {showShootout && (
+        <div
+          className="flex items-center gap-2 flex-wrap"
+          role="group"
+          aria-label="Penalty shootout winner"
+        >
+          <span className="body body-size-xsmall text-[color:var(--color-text-tertiary)]">
+            Pens:
+          </span>
+          <ShootoutToggle
+            label={homeTeam?.name ?? "Home"}
+            selected={shootout === homeTeamId}
+            onSelect={() => setShootout(homeTeamId)}
+          />
+          <ShootoutToggle
+            label={awayTeam?.name ?? "Away"}
+            selected={shootout === awayTeamId}
+            onSelect={() => setShootout(awayTeamId)}
+          />
+        </div>
+      )}
       {historicGlyph && (
         <span
           className="body body-size-xsmall italic text-[color:var(--color-text-tertiary)] animate-pulse"
@@ -158,6 +203,31 @@ export function InlineScoreEditor({
         <SubmissionDeadline deadline={deadline} />
       </div>
     </div>
+  );
+}
+
+function ShootoutToggle({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={
+        selected
+          ? "rounded-md border border-[color:var(--color-action-primary-cta)] bg-[color:var(--color-action-primary-cta)]/10 px-2 h-6 body body-size-xsmall text-[color:var(--color-text-primary)]"
+          : "rounded-md border border-[color:var(--color-border-primary)] px-2 h-6 body body-size-xsmall text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-surface-hover)]"
+      }
+    >
+      {label}
+    </button>
   );
 }
 

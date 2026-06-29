@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_SCORING,
   scorePrediction,
+  scoreShootoutBonus,
   type ScoringConfig,
 } from "@/lib/scoring";
 import type { MatchStatus, Stage } from "@prisma/client";
@@ -40,10 +41,14 @@ export type LeaderboardRow = {
 type MatchPointsPrediction = {
   homeScore: number;
   awayScore: number;
+  shootoutWinnerTeamId: string | null;
   match: {
     stage: Stage;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
     homeScore: number | null;
     awayScore: number | null;
+    advancingTeamId: string | null;
     status: MatchStatus;
     kickoff: Date;
     oddsHome: number | null;
@@ -96,7 +101,7 @@ export function summarizeMatchPoints(
       if (finished) earnings += pnl;
       else liveEarnings += pnl;
     }
-    const points = scorePrediction(
+    const scoreline = scorePrediction(
       { homeScore: p.homeScore, awayScore: p.awayScore },
       {
         stage: p.match.stage,
@@ -105,15 +110,36 @@ export function summarizeMatchPoints(
       },
       config
     );
-    if (points === 0) continue;
     if (!finished) {
-      livePoints += points;
+      livePoints += scoreline;
       continue;
     }
-    matchPoints += points;
-    const multiplier = p.match.stage !== "GROUP" ? config.knockoutMultiplier : 1;
-    if (points === config.exactScore * multiplier) exact++;
-    else outcome++;
+    // The shootout bonus can apply even when the scoreline scored nothing (a
+    // decisive prediction of the side that advanced on penalties), so it's added
+    // independently of the scoreline points and never counts as exact/outcome.
+    const bonus = scoreShootoutBonus(
+      {
+        homeScore: p.homeScore,
+        awayScore: p.awayScore,
+        shootoutWinnerTeamId: p.shootoutWinnerTeamId,
+      },
+      {
+        stage: p.match.stage,
+        homeTeamId: p.match.homeTeamId,
+        awayTeamId: p.match.awayTeamId,
+        homeScore: p.match.homeScore,
+        awayScore: p.match.awayScore,
+        advancingTeamId: p.match.advancingTeamId,
+      },
+      config
+    );
+    matchPoints += scoreline + bonus;
+    if (scoreline > 0) {
+      const multiplier =
+        p.match.stage !== "GROUP" ? config.knockoutMultiplier : 1;
+      if (scoreline === config.exactScore * multiplier) exact++;
+      else outcome++;
+    }
   }
   return { matchPoints, livePoints, exact, outcome, earnings, liveEarnings };
 }
@@ -141,6 +167,7 @@ export async function getScoringConfig(): Promise<ScoringConfig> {
     podiumExactPosition:
       v.podiumExactPosition ?? DEFAULT_SCORING.podiumExactPosition,
     podiumInTop3: v.podiumInTop3 ?? DEFAULT_SCORING.podiumInTop3,
+    shootoutBonus: v.shootoutBonus ?? DEFAULT_SCORING.shootoutBonus,
   };
 }
 
@@ -160,11 +187,15 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
             select: {
               homeScore: true,
               awayScore: true,
+              shootoutWinnerTeamId: true,
               match: {
                 select: {
                   stage: true,
+                  homeTeamId: true,
+                  awayTeamId: true,
                   homeScore: true,
                   awayScore: true,
+                  advancingTeamId: true,
                   status: true,
                   kickoff: true,
                   oddsHome: true,
@@ -208,10 +239,7 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
         where: { stage: { in: ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] } },
         select: {
           stage: true,
-          homeTeamId: true,
-          awayTeamId: true,
-          homeScore: true,
-          awayScore: true,
+          advancingTeamId: true,
           status: true,
         },
       }),
