@@ -29,7 +29,6 @@ function buildItems(isAdmin: boolean): CommandItem[] {
     { id: "groups", label: "Go to groups", hint: "/groups", action: { kind: "navigate", href: "/groups" } },
     { id: "bracket", label: "Go to bracket", hint: "/bracket", action: { kind: "navigate", href: "/bracket" } },
     { id: "awards", label: "Go to awards", hint: "/awards", action: { kind: "navigate", href: "/awards" } },
-    { id: "podium", label: "Go to podium", hint: "/podium", action: { kind: "navigate", href: "/podium" } },
     { id: "leaderboard", label: "Go to leaderboard", hint: "/leaderboard", action: { kind: "navigate", href: "/leaderboard" } },
     { id: "me", label: "Go to my predictions", hint: "/me", action: { kind: "navigate", href: "/me" } },
     {

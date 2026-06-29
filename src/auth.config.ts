@@ -4,7 +4,6 @@ const PROTECTED_PREFIXES = [
   "/matches",
   "/bracket",
   "/leaderboard",
-  "/podium",
   "/me",
   "/admin",
   "/ctf",

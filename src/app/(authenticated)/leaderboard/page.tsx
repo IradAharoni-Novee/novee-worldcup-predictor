@@ -66,7 +66,6 @@ export default async function LeaderboardPage() {
               <TableHead className="text-right hidden sm:table-cell">Groups</TableHead>
               <TableHead className="text-right hidden md:table-cell">Bracket</TableHead>
               <TableHead className="text-right hidden md:table-cell">Awards</TableHead>
-              <TableHead className="text-right hidden lg:table-cell">Podium</TableHead>
               <TableHead className="text-right hidden lg:table-cell">Exact</TableHead>
               <TableHead className="text-right hidden lg:table-cell">Predictions</TableHead>
             </TableRow>
@@ -156,9 +155,6 @@ export default async function LeaderboardPage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums hidden md:table-cell">
                     {row.awardsPoints}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums hidden lg:table-cell">
-                    {row.podiumPoints}
                   </TableCell>
                   <TableCell className="text-right tabular-nums hidden lg:table-cell">
                     {row.exact}
