@@ -11,8 +11,6 @@ export type ScoringConfig = {
   bracketRoundPoints: Record<KnockoutStage, number>;
   tournamentWinnerPoints: number;
   goldenBootPoints: number;
-  podiumExactPosition: number;
-  podiumInTop3: number;
   // Flat bonus for correctly calling the advancing side of a knockout decided
   // on penalties. Not multiplied by knockoutMultiplier (it's already
   // knockout-only). See scoreShootoutBonus.
@@ -35,8 +33,6 @@ export const DEFAULT_SCORING: ScoringConfig = {
   },
   tournamentWinnerPoints: 25,
   goldenBootPoints: 20,
-  podiumExactPosition: 3,
-  podiumInTop3: 1,
   shootoutBonus: 1,
 };
 

@@ -16,7 +16,6 @@ const NAV: readonly NavLink[] = [
   { href: "/groups", label: "Groups" },
   { href: "/bracket", label: "Bracket" },
   { href: "/awards", label: "Awards" },
-  { href: "/podium", label: "Podium" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/me", label: "Me" },
 ];

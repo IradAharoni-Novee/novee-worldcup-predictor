@@ -15,8 +15,6 @@ import {
   SETTING_KEY_ACTUAL_WINNER,
   scoreAwards,
 } from "@/lib/scoring-awards";
-import { scorePodiumPrediction } from "@/lib/scoring-podium";
-import { isAiPlayer } from "@/lib/ai-players";
 import { oddsForOutcome, outcomeOf, settleBet } from "@/lib/earnings";
 
 export type LeaderboardRow = {
@@ -30,7 +28,6 @@ export type LeaderboardRow = {
   groupPoints: number;
   bracketPoints: number;
   awardsPoints: number;
-  podiumPoints: number;
   exact: number;
   outcome: number;
   predictions: number;
@@ -164,9 +161,6 @@ export async function getScoringConfig(): Promise<ScoringConfig> {
     tournamentWinnerPoints:
       v.tournamentWinnerPoints ?? DEFAULT_SCORING.tournamentWinnerPoints,
     goldenBootPoints: v.goldenBootPoints ?? DEFAULT_SCORING.goldenBootPoints,
-    podiumExactPosition:
-      v.podiumExactPosition ?? DEFAULT_SCORING.podiumExactPosition,
-    podiumInTop3: v.podiumInTop3 ?? DEFAULT_SCORING.podiumInTop3,
     shootoutBonus: v.shootoutBonus ?? DEFAULT_SCORING.shootoutBonus,
   };
 }
@@ -219,9 +213,6 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
           },
           winnerPrediction: { select: { teamId: true } },
           goldenBootPrediction: { select: { playerId: true } },
-          podiumPrediction: {
-            select: { firstId: true, secondId: true, thirdId: true },
-          },
         },
       }),
       prisma.match.findMany({
@@ -271,13 +262,7 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
 
   const advancers = computeAdvancers(knockoutMatches);
 
-  const finals = knockoutMatches.filter((m) => m.stage === "FINAL");
-  const podiumSettled =
-    finals.length > 0 && finals.every((m) => m.status === "FINISHED");
-
-  // First pass: every surface except the podium meta-prediction. The podium is
-  // graded against this base ranking so the meta-prediction never grades itself.
-  const baseRows = users.map((user) => {
+  const rows = users.map<LeaderboardRow>((user) => {
     const { matchPoints, livePoints, exact, outcome, earnings, liveEarnings } =
       summarizeMatchPoints(user.predictions, config, now);
 
@@ -307,85 +292,26 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
       config
     );
 
-    const baseTotal =
-      matchPoints + groupPoints + bracketScore.total + awardsScore.total;
-
     return {
-      user,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
       matchPoints,
       livePoints,
-      exact,
-      outcome,
       groupPoints,
       bracketPoints: bracketScore.total,
       awardsPoints: awardsScore.total,
+      total:
+        matchPoints + groupPoints + bracketScore.total + awardsScore.total,
+      exact,
+      outcome,
+      predictions: user.predictions.length,
       earnings,
       liveEarnings,
-      baseTotal,
-    };
-  });
-
-  const actualPodium = podiumSettled
-    ? [...baseRows]
-        .filter((r) => !isAiPlayer(r.user.email))
-        .sort((a, b) => b.baseTotal - a.baseTotal || b.exact - a.exact)
-        .slice(0, 3)
-        .map((r) => r.user.id)
-    : [];
-
-  // Second pass: add podium points on top of the frozen base ranking.
-  const rows = baseRows.map<LeaderboardRow>((r) => {
-    const podiumPoints = r.user.podiumPrediction
-      ? scorePodiumPrediction(r.user.podiumPrediction, actualPodium, config)
-          .total
-      : 0;
-    return {
-      userId: r.user.id,
-      name: r.user.name,
-      email: r.user.email,
-      image: r.user.image,
-      matchPoints: r.matchPoints,
-      livePoints: r.livePoints,
-      groupPoints: r.groupPoints,
-      bracketPoints: r.bracketPoints,
-      awardsPoints: r.awardsPoints,
-      podiumPoints,
-      total: r.baseTotal + podiumPoints,
-      exact: r.exact,
-      outcome: r.outcome,
-      predictions: r.user.predictions.length,
-      earnings: r.earnings,
-      liveEarnings: r.liveEarnings,
     };
   });
 
   rows.sort((a, b) => b.total - a.total || b.exact - a.exact);
   return rows;
-}
-
-/**
- * The ordered top-3 human user ids once the tournament is over, or `null` while
- * the podium is unsettled. The ranking deliberately excludes podium points
- * (`total - podiumPoints`) so the meta-prediction can't grade itself, and
- * filters out AI shadow players. Pass the rows from `getLeaderboard()`.
- */
-export function deriveActualPodium(rows: LeaderboardRow[]): string[] {
-  return [...rows]
-    .filter((r) => !isAiPlayer(r.email))
-    .sort(
-      (a, b) =>
-        b.total - b.podiumPoints - (a.total - a.podiumPoints) ||
-        b.exact - a.exact
-    )
-    .slice(0, 3)
-    .map((r) => r.userId);
-}
-
-/** True once the FINAL match (and any final there is) has finished. */
-export async function isPodiumSettled(): Promise<boolean> {
-  const finals = await prisma.match.findMany({
-    where: { stage: "FINAL" },
-    select: { status: true },
-  });
-  return finals.length > 0 && finals.every((m) => m.status === "FINISHED");
 }
