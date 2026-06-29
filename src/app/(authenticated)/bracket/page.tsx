@@ -67,6 +67,7 @@ export default async function BracketPage() {
           awayTeamId: true,
           homeScore: true,
           awayScore: true,
+          advancingTeamId: true,
           homeTeam: { select: { name: true, code: true, flag: true } },
           awayTeam: { select: { name: true, code: true, flag: true } },
         },
@@ -154,6 +155,10 @@ type ScheduleMatch = KnockoutMatch & {
   venue: string | null;
   city: string | null;
   country: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
   homeTeam: { name: string; code: string; flag: string | null } | null;
   awayTeam: { name: string; code: string; flag: string | null } | null;
 };

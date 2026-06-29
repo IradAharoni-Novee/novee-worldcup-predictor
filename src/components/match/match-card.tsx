@@ -22,6 +22,10 @@ export type MatchCardProps = {
   country: string | null;
   homeTeam: TeamLite;
   awayTeam: TeamLite;
+  // Team ids (distinct from the display TeamLite) so the inline editor can offer
+  // a penalty-shootout-winner pick for level knockout predictions.
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   // Bracket position labels (e.g. "2nd A") shown when a knockout team is still
   // undecided, plus `provisional` when the teams shown are projected from live
   // group standings rather than officially set.
@@ -31,7 +35,12 @@ export type MatchCardProps = {
   homeScore: number | null;
   awayScore: number | null;
   status: "SCHEDULED" | "LIVE" | "FINISHED";
-  prediction?: { homeScore: number; awayScore: number; note?: string | null } | null;
+  prediction?: {
+    homeScore: number;
+    awayScore: number;
+    shootoutWinnerTeamId?: string | null;
+    note?: string | null;
+  } | null;
   points?: number | null;
   odds?: { home: number; draw: number; away: number } | null;
   // Marks this card as the "jump to recent matches" scroll target — the first
@@ -132,6 +141,8 @@ export function MatchCard({
   country,
   homeTeam,
   awayTeam,
+  homeTeamId,
+  awayTeamId,
   homeFallback,
   awayFallback,
   provisional = false,
@@ -242,6 +253,9 @@ export function MatchCard({
           homeFallback={homeFallback}
           awayFallback={awayFallback}
           deadline={kickoff}
+          knockout={stage !== "GROUP"}
+          homeTeamId={homeTeamId}
+          awayTeamId={awayTeamId}
         />
       )}
 

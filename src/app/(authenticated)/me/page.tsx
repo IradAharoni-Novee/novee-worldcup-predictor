@@ -8,7 +8,7 @@ import { PageContainer } from "@/components/shell/page-container";
 import { formatMoney, isMatchLive, stageLabel } from "@/lib/format";
 import { LocalKickoff } from "@/components/predictor/submission-deadline";
 import { getScoringConfig } from "@/lib/leaderboard";
-import { scorePrediction } from "@/lib/scoring";
+import { scoreMatchTotal } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/group-standings";
 import { scoreGroupPrediction } from "@/lib/scoring-groups";
 import {
@@ -87,10 +87,7 @@ export default async function MePage() {
       where: { stage: { in: ["R32", "R16", "QF", "SF", "THIRD", "FINAL"] } },
       select: {
         stage: true,
-        homeTeamId: true,
-        awayTeamId: true,
-        homeScore: true,
-        awayScore: true,
+        advancingTeamId: true,
       },
     }),
     prisma.tournamentWinnerPrediction.findUnique({
@@ -137,12 +134,19 @@ export default async function MePage() {
   const matchPoints = predictions.reduce((sum, p) => {
     return (
       sum +
-      scorePrediction(
-        { homeScore: p.homeScore, awayScore: p.awayScore },
+      scoreMatchTotal(
+        {
+          homeScore: p.homeScore,
+          awayScore: p.awayScore,
+          shootoutWinnerTeamId: p.shootoutWinnerTeamId,
+        },
         {
           stage: p.match.stage,
+          homeTeamId: p.match.homeTeamId,
+          awayTeamId: p.match.awayTeamId,
           homeScore: p.match.homeScore,
           awayScore: p.match.awayScore,
+          advancingTeamId: p.match.advancingTeamId,
         },
         config
       )
@@ -473,12 +477,19 @@ export default async function MePage() {
         ) : (
           <div className="flex flex-col gap-2">
             {predictions.map((p) => {
-              const points = scorePrediction(
-                { homeScore: p.homeScore, awayScore: p.awayScore },
+              const points = scoreMatchTotal(
+                {
+                  homeScore: p.homeScore,
+                  awayScore: p.awayScore,
+                  shootoutWinnerTeamId: p.shootoutWinnerTeamId,
+                },
                 {
                   stage: p.match.stage,
+                  homeTeamId: p.match.homeTeamId,
+                  awayTeamId: p.match.awayTeamId,
                   homeScore: p.match.homeScore,
                   awayScore: p.match.awayScore,
+                  advancingTeamId: p.match.advancingTeamId,
                 },
                 config
               );

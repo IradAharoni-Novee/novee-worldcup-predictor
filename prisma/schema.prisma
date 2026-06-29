@@ -139,6 +139,12 @@ model Match {
   awayTeamId    String?
   homeScore     Int?
   awayScore     Int?
+  // The team that advanced, including extra-time and penalty-shootout results
+  // (synced from the feed's winner field). For a knockout decided on penalties
+  // the stored score stays a draw, so this is the only record of who went
+  // through. Always one of homeTeamId/awayTeamId; null until a knockout
+  // match finishes (and always null for group matches).
+  advancingTeamId String?
   status        MatchStatus @default(SCHEDULED)
   oddsHome      Float?
   oddsDraw      Float?
@@ -160,6 +166,11 @@ model Prediction {
   matchId     String
   homeScore   Int
   awayScore   Int
+  // For a knockout tie, the team the user thinks wins the shootout. Only set
+  // when this is a knockout match predicted as a draw; always one of the
+  // match's two teams. A decisive predicted score already implies the side, so
+  // this is null in that case. Scores the "correct advancing side" bonus.
+  shootoutWinnerTeamId String?
   // Optional 80-char "hot take" attached to the prediction. Revealed
   // retroactively on /me and on the match detail page after kickoff.
   note        String?

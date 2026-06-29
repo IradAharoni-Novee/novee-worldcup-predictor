@@ -17,13 +17,19 @@ export type AfFixture = {
   awayGoals: number | null;
   // API-Football status short code: NS, 1H, HT, 2H, ET, BT, P, FT, AET, PEN, …
   statusShort: string;
+  // Which side won, including extra time and penalty shootouts (API-Football
+  // sets `teams.{home,away}.winner`). null until the result is decided.
+  winnerSide: "HOME" | "AWAY" | null;
 };
 
 type AfFixtureResponse = {
   errors: unknown;
   response: Array<{
     fixture: { id: number; date: string; status: { short: string } };
-    teams: { home: { name: string }; away: { name: string } };
+    teams: {
+      home: { name: string; winner: boolean | null };
+      away: { name: string; winner: boolean | null };
+    };
     goals: { home: number | null; away: number | null };
   }>;
 };
@@ -43,6 +49,11 @@ function normalise(res: AfFixtureResponse): AfFixture[] {
     homeGoals: f.goals.home,
     awayGoals: f.goals.away,
     statusShort: f.fixture.status.short,
+    winnerSide: f.teams.home.winner
+      ? "HOME"
+      : f.teams.away.winner
+        ? "AWAY"
+        : null,
   }));
 }
 

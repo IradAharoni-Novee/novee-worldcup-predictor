@@ -13,6 +13,10 @@ type FdTeam = {
 };
 
 type FdScore = {
+  // For a finished knockout this reflects who went through, including extra time
+  // and penalty shootouts (the shootout winner). "DRAW" only occurs for group
+  // matches; null while the match is unplayed or in progress.
+  winner: "HOME_TEAM" | "AWAY_TEAM" | "DRAW" | null;
   fullTime: { home: number | null; away: number | null };
   halfTime: { home: number | null; away: number | null };
 };

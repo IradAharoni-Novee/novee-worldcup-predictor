@@ -13,6 +13,10 @@ export type ScoringConfig = {
   goldenBootPoints: number;
   podiumExactPosition: number;
   podiumInTop3: number;
+  // Flat bonus for correctly calling the advancing side of a knockout decided
+  // on penalties. Not multiplied by knockoutMultiplier (it's already
+  // knockout-only). See scoreShootoutBonus.
+  shootoutBonus: number;
 };
 
 export const DEFAULT_SCORING: ScoringConfig = {
@@ -33,6 +37,7 @@ export const DEFAULT_SCORING: ScoringConfig = {
   goldenBootPoints: 20,
   podiumExactPosition: 3,
   podiumInTop3: 1,
+  shootoutBonus: 1,
 };
 
 type MatchLike = {
@@ -105,6 +110,83 @@ export function scorePrediction(
 
   if (base === 0) return 0;
   return isKnockout(match.stage) ? base * config.knockoutMultiplier : base;
+}
+
+type ShootoutMatchLike = {
+  stage: Stage;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  advancingTeamId: string | null;
+};
+
+type ShootoutPredictionLike = {
+  homeScore: number;
+  awayScore: number;
+  shootoutWinnerTeamId: string | null;
+} | null;
+
+/**
+ * The team a prediction implies will advance from a knockout match. A decisive
+ * predicted score names the higher-scored side; a predicted draw defers to the
+ * explicit shootout-winner pick (which may be null if the user didn't choose).
+ */
+function predictedAdvancer(
+  prediction: {
+    homeScore: number;
+    awayScore: number;
+    shootoutWinnerTeamId: string | null;
+  },
+  match: { homeTeamId: string | null; awayTeamId: string | null }
+): string | null {
+  if (prediction.homeScore > prediction.awayScore) return match.homeTeamId;
+  if (prediction.awayScore > prediction.homeScore) return match.awayTeamId;
+  return prediction.shootoutWinnerTeamId;
+}
+
+/**
+ * Bonus for calling the correct advancing side of a knockout decided on
+ * penalties. A shootout is the only way a knockout's stored score stays level
+ * while still producing an advancer, so the trigger is: knockout stage, a drawn
+ * 120' score, and a known advancer. Awards a flat `shootoutBonus` (no knockout
+ * multiplier — it's already knockout-only) when the prediction's implied
+ * advancer matches the team that actually went through. Returns 0 otherwise,
+ * including for matches decided in 90'/extra time, where the normal outcome
+ * points already reward the correct side.
+ */
+export function scoreShootoutBonus(
+  prediction: ShootoutPredictionLike,
+  match: ShootoutMatchLike,
+  config: ScoringConfig = DEFAULT_SCORING
+): number {
+  if (!prediction) return 0;
+  if (!isKnockout(match.stage)) return 0;
+  if (match.homeScore == null || match.awayScore == null) return 0;
+  if (match.homeScore !== match.awayScore) return 0;
+  if (match.advancingTeamId == null) return 0;
+  const advancer = predictedAdvancer(prediction, match);
+  return advancer != null && advancer === match.advancingTeamId
+    ? config.shootoutBonus
+    : 0;
+}
+
+/**
+ * Total per-match points: scoreline points (exact/outcome, knockout-multiplied)
+ * plus any correct-advancing-side shootout bonus. Use this for per-match
+ * displays so they match the leaderboard total. The leaderboard keeps the two
+ * parts separate only so it can classify exact-vs-outcome hits.
+ */
+export function scoreMatchTotal(
+  prediction: ShootoutPredictionLike,
+  match: ShootoutMatchLike,
+  config: ScoringConfig = DEFAULT_SCORING
+): number {
+  if (!prediction) return 0;
+  return (
+    scorePrediction(prediction, match, config) +
+    scoreShootoutBonus(prediction, match, config)
+  );
 }
 
 export type ScoreBreakdown = {

@@ -14,6 +14,7 @@ const NOTE_MAX = 80;
 export type PredictionFormInitial = {
   homeScore: number;
   awayScore: number;
+  shootoutWinnerTeamId?: string | null;
   note?: string | null;
 };
 
@@ -21,10 +22,20 @@ export function PredictionForm({
   matchId,
   initial,
   locked,
+  knockout,
+  homeTeamId,
+  awayTeamId,
+  homeTeamName,
+  awayTeamName,
 }: {
   matchId: string;
   initial?: PredictionFormInitial | null;
   locked: boolean;
+  knockout: boolean;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
 }) {
   const [state, action, pending] = useActionState<SubmitResult | null, FormData>(
     submitPrediction,
@@ -32,9 +43,25 @@ export function PredictionForm({
   );
   const [home, setHome] = useState(initial?.homeScore ?? 0);
   const [away, setAway] = useState(initial?.awayScore ?? 0);
+  const [shootout, setShootout] = useState<string | null>(
+    initial?.shootoutWinnerTeamId ?? null
+  );
   const [note, setNote] = useState(initial?.note ?? "");
 
+  // A shootout winner is only relevant for a knockout predicted as a level
+  // score, and only once both teams are known.
+  const showShootout =
+    knockout && home === away && homeTeamId != null && awayTeamId != null;
+
   if (locked) {
+    const lockedShootoutName =
+      initial?.shootoutWinnerTeamId == null
+        ? null
+        : initial.shootoutWinnerTeamId === homeTeamId
+          ? homeTeamName
+          : initial.shootoutWinnerTeamId === awayTeamId
+            ? awayTeamName
+            : null;
     return (
       <div className="rounded-md border border-[color:var(--color-border-secondary)] bg-[color:var(--color-surface-secondary)] px-4 py-3 body body-size-medium text-[color:var(--color-text-secondary)] flex flex-col gap-2">
         {initial ? (
@@ -43,6 +70,12 @@ export function PredictionForm({
             <span className="code code-size-large">
               {initial.homeScore}–{initial.awayScore}
             </span>
+            {lockedShootoutName && (
+              <span className="body body-size-small">
+                {" "}
+                · {lockedShootoutName} to win the shootout
+              </span>
+            )}
           </span>
         ) : (
           <span>Kickoff has passed — no prediction was submitted.</span>
@@ -59,6 +92,11 @@ export function PredictionForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="matchId" value={matchId} />
+      <input
+        type="hidden"
+        name="shootoutWinnerTeamId"
+        value={showShootout ? shootout ?? "" : ""}
+      />
       <div className="flex items-center justify-center gap-3">
         <ScoreSpinner
           name="homeScore"
@@ -76,6 +114,25 @@ export function PredictionForm({
           ariaLabel="Away team score"
         />
       </div>
+      {showShootout && (
+        <fieldset className="flex flex-col gap-2 items-center">
+          <legend className="body body-size-small text-[color:var(--color-text-secondary)]">
+            A draw goes to penalties — who wins the shootout?
+          </legend>
+          <div className="flex gap-2">
+            <ShootoutChoice
+              label={homeTeamName}
+              selected={shootout === homeTeamId}
+              onSelect={() => setShootout(homeTeamId)}
+            />
+            <ShootoutChoice
+              label={awayTeamName}
+              selected={shootout === awayTeamId}
+              onSelect={() => setShootout(awayTeamId)}
+            />
+          </div>
+        </fieldset>
+      )}
       <div className="flex flex-col gap-1">
         <label
           htmlFor={`note-${matchId}`}
@@ -119,6 +176,31 @@ export function PredictionForm({
         )}
       </Button>
     </form>
+  );
+}
+
+function ShootoutChoice({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={
+        selected
+          ? "rounded-md border border-[color:var(--color-action-primary-cta)] bg-[color:var(--color-action-primary-cta)]/10 px-3 py-1.5 body body-size-small text-[color:var(--color-text-primary)]"
+          : "rounded-md border border-[color:var(--color-border-primary)] px-3 py-1.5 body body-size-small text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-surface-hover)]"
+      }
+    >
+      {label}
+    </button>
   );
 }
 

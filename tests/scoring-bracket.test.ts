@@ -8,32 +8,37 @@ import {
 } from "@/lib/scoring-bracket";
 
 describe("computeAdvancers", () => {
-  it("records the winner of each match under its own stage", () => {
+  it("records the advancing team under its own stage", () => {
     const matches: KnockoutMatch[] = [
-      { stage: Stage.R32, homeTeamId: "A", awayTeamId: "B", homeScore: 2, awayScore: 1 },
-      { stage: Stage.R32, homeTeamId: "C", awayTeamId: "D", homeScore: 0, awayScore: 1 },
+      { stage: Stage.R32, advancingTeamId: "A" },
+      { stage: Stage.R32, advancingTeamId: "D" },
     ];
     const a = computeAdvancers(matches);
     expect([...a.R32].sort()).toEqual(["A", "D"]);
     expect(a.R16.size).toBe(0);
   });
 
-  it("propagates winners through rounds", () => {
+  it("propagates advancers through rounds", () => {
     const matches: KnockoutMatch[] = [
-      { stage: Stage.R32, homeTeamId: "A", awayTeamId: "B", homeScore: 2, awayScore: 1 },
-      { stage: Stage.R32, homeTeamId: "C", awayTeamId: "D", homeScore: 0, awayScore: 1 },
-      { stage: Stage.R16, homeTeamId: "A", awayTeamId: "D", homeScore: 3, awayScore: 0 },
+      { stage: Stage.R32, advancingTeamId: "A" },
+      { stage: Stage.R32, advancingTeamId: "D" },
+      { stage: Stage.R16, advancingTeamId: "A" },
     ];
     const a = computeAdvancers(matches);
     expect([...a.R32].sort()).toEqual(["A", "D"]);
     expect([...a.R16]).toEqual(["A"]);
   });
 
-  it("ignores drawn or unfinished matches", () => {
-    const matches: KnockoutMatch[] = [
-      { stage: Stage.R32, homeTeamId: "A", awayTeamId: "B", homeScore: 1, awayScore: 1 },
-      { stage: Stage.R32, homeTeamId: "C", awayTeamId: "D", homeScore: null, awayScore: null },
-    ];
+  it("credits a penalty-shootout winner whose score stayed a draw", () => {
+    // 1–1 after 120', A won on penalties: advancingTeamId is the only signal of
+    // who went through — the score alone would (wrongly) credit nobody.
+    const matches: KnockoutMatch[] = [{ stage: Stage.R32, advancingTeamId: "A" }];
+    const a = computeAdvancers(matches);
+    expect([...a.R32]).toEqual(["A"]);
+  });
+
+  it("ignores matches with no advancer yet", () => {
+    const matches: KnockoutMatch[] = [{ stage: Stage.R32, advancingTeamId: null }];
     const a = computeAdvancers(matches);
     expect(a.R32.size).toBe(0);
   });
