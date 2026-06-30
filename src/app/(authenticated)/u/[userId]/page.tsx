@@ -457,7 +457,12 @@ export default async function UserProfilePage({
                     <div className="px-4 flex items-center justify-between body body-size-small">
                       <span className="text-[color:var(--color-text-tertiary)]">
                         {p.match.status === "FINISHED"
-                          ? `Actual: ${p.match.homeScore}–${p.match.awayScore}`
+                          ? `Actual: ${p.match.homeScore}–${p.match.awayScore}${
+                              p.match.penaltyHome != null &&
+                              p.match.penaltyAway != null
+                                ? ` (pens ${p.match.penaltyHome}–${p.match.penaltyAway})`
+                                : ""
+                            }`
                           : isMatchLive(p.match.status, p.match.kickoff)
                             ? "Live"
                             : "Upcoming"}
