@@ -3,6 +3,7 @@ import { Stage } from "@prisma/client";
 import { projectR32Slots, type ProjectedGroupMatch } from "@/lib/r32-projection";
 import {
   liveKnockoutMatchup,
+  buildKnockoutResults,
   KNOCKOUT_FD_ID_TO_SLOT,
 } from "@/lib/knockout-projection";
 
@@ -36,8 +37,19 @@ const ko = (
   fdId: number,
   stage: Stage,
   official: { homeTeamId: string | null; awayTeamId: string | null },
-  slots = completeSlots
-) => liveKnockoutMatchup({ fdId, stage, ...official }, slots, id);
+  slots = completeSlots,
+  results = buildKnockoutResults([])
+) => liveKnockoutMatchup({ fdId, stage, ...official }, slots, id, results);
+
+// A decided knockout result feeding the cascade.
+const won = (fdId: number, stage: Stage, advancingTeamId: string) => ({
+  fdId,
+  stage,
+  homeTeamId: null,
+  awayTeamId: null,
+  advancingTeamId,
+});
+const results = (...ms: ReturnType<typeof won>[]) => buildKnockoutResults(ms);
 
 const NONE = { homeTeamId: null, awayTeamId: null };
 
@@ -126,6 +138,65 @@ describe("liveKnockoutMatchup — QF/SF/Final/Third reference the feeding match"
     expect(m.home.label).toBe("Loser of SF #1");
     expect(m.away.label).toBe("Loser of SF #2");
     expect(m.matchNo).toBeNull();
+  });
+});
+
+describe("liveKnockoutMatchup — the cascade rolls winners forward", () => {
+  // R16 slot 1 (537376) is fed by R32 slot 2 (537417 = 2A v 2B) and slot 3
+  // (537418 = 1F v 2C).
+  it("resolves a Round of 16 side to the Round of 32 winner once decided", () => {
+    const m = ko(
+      537376,
+      Stage.R16,
+      NONE,
+      completeSlots,
+      results(won(537417, Stage.R32, "A2"), won(537418, Stage.R32, "F1"))
+    )!;
+    expect(m.home.teamId).toBe("A2");
+    expect(m.away.teamId).toBe("F1");
+    // Real results, not a group projection.
+    expect(m.provisional).toBe(false);
+  });
+
+  it("shows the decided winner on one side and the feeder options on the other", () => {
+    const m = ko(
+      537376,
+      Stage.R16,
+      NONE,
+      completeSlots,
+      results(won(537417, Stage.R32, "A2"))
+    )!;
+    expect(m.home.teamId).toBe("A2");
+    expect(m.away.teamId).toBeNull();
+    expect(m.away.label).toBe("F1 / C2");
+  });
+
+  // QF slot 0 (537383) is fed by R16 slot 0 (537375) and R16 slot 1 (537376).
+  it("rolls Round of 32 winners into the QF as team options on the decided side", () => {
+    const m = ko(
+      537383,
+      Stage.QF,
+      NONE,
+      completeSlots,
+      results(won(537417, Stage.R32, "A2"), won(537418, Stage.R32, "F1"))
+    )!;
+    // R16 slot 1's feeders are both decided -> concrete options.
+    expect(m.away.label).toBe("A2 / F1");
+    // R16 slot 0's feeders aren't -> still a reference.
+    expect(m.home.label).toBe("Winner of R16 #1");
+  });
+
+  it("resolves the QF to actual teams once the Round of 16 is decided", () => {
+    const m = ko(
+      537383,
+      Stage.QF,
+      NONE,
+      completeSlots,
+      results(won(537375, Stage.R16, "E1"), won(537376, Stage.R16, "A2"))
+    )!;
+    expect(m.home.teamId).toBe("E1");
+    expect(m.away.teamId).toBe("A2");
+    expect(m.provisional).toBe(false);
   });
 });
 

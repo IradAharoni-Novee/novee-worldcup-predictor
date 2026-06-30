@@ -16,9 +16,12 @@ import {
 import { PageContainer } from "@/components/shell/page-container";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
-import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
+import { isLocked, isMatchLive, losingSide, stageLabel } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
-import { liveKnockoutMatchup } from "@/lib/knockout-projection";
+import {
+  buildKnockoutResults,
+  liveKnockoutMatchup,
+} from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
 import { isKnockout, scoreMatchTotal } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
@@ -77,12 +80,14 @@ export default async function MatchDetailPage({
   // Show the scoreline for finished matches and for live matches once a score
   // has synced; a live match with no score yet still falls back to "vs".
   const showScore = hasScore && match.status !== "SCHEDULED";
-  const loser =
-    match.status === "FINISHED" && hasScore && match.homeScore !== match.awayScore
-      ? match.homeScore! > match.awayScore!
-        ? "away"
-        : "home"
-      : null;
+  const loser = losingSide({
+    status: match.status,
+    homeScore: match.homeScore,
+    awayScore: match.awayScore,
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    advancingTeamId: match.advancingTeamId,
+  });
   const locationParts = [match.city, match.country].filter(Boolean);
   const points =
     match.status === "FINISHED"
@@ -398,7 +403,7 @@ async function resolveLiveKnockoutMatchup(match: {
   if (match.stage === "GROUP" || (match.homeTeamId && match.awayTeamId)) {
     return null;
   }
-  const [groupMatches, teams] = await withRetry(() =>
+  const [groupMatches, knockoutMatches, teams] = await withRetry(() =>
     Promise.all([
       prisma.match.findMany({
         where: { stage: "GROUP", group: { not: null } },
@@ -410,6 +415,16 @@ async function resolveLiveKnockoutMatchup(match: {
           awayScore: true,
         },
       }),
+      prisma.match.findMany({
+        where: { stage: { not: "GROUP" } },
+        select: {
+          fdId: true,
+          stage: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          advancingTeamId: true,
+        },
+      }),
       prisma.team.findMany({
         select: { id: true, name: true, code: true, flag: true },
       }),
@@ -419,7 +434,8 @@ async function resolveLiveKnockoutMatchup(match: {
   const matchup = liveKnockoutMatchup(
     match,
     projectR32Slots(groupMatches.map((m) => ({ ...m, group: m.group as string }))),
-    (id) => byId.get(id)?.name
+    (id) => byId.get(id)?.name,
+    buildKnockoutResults(knockoutMatches)
   );
   if (!matchup) return null;
   return {

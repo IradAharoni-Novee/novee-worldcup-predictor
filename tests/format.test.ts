@@ -1,9 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { formatKickoff, isMatchLive } from "@/lib/format";
+import { formatKickoff, isMatchLive, losingSide } from "@/lib/format";
 
 const now = new Date("2026-06-11T19:06:00Z");
 const kickedOff = new Date("2026-06-11T19:00:00Z");
 const future = new Date("2026-06-12T02:00:00Z");
+
+describe("losingSide", () => {
+  const base = {
+    status: "FINISHED" as const,
+    homeTeamId: "home",
+    awayTeamId: "away",
+    advancingTeamId: null as string | null,
+  };
+
+  it("picks the lower-scored side", () => {
+    expect(losingSide({ ...base, homeScore: 2, awayScore: 0 })).toBe("away");
+    expect(losingSide({ ...base, homeScore: 0, awayScore: 2 })).toBe("home");
+  });
+
+  it("dims the shootout loser on a level score via the advancer", () => {
+    expect(
+      losingSide({ ...base, homeScore: 1, awayScore: 1, advancingTeamId: "away" })
+    ).toBe("home");
+    expect(
+      losingSide({ ...base, homeScore: 1, awayScore: 1, advancingTeamId: "home" })
+    ).toBe("away");
+  });
+
+  it("dims nobody for a level score with no advancer (group draw)", () => {
+    expect(losingSide({ ...base, homeScore: 1, awayScore: 1 })).toBeNull();
+  });
+
+  it("dims nobody until the match is finished", () => {
+    expect(
+      losingSide({ ...base, status: "LIVE", homeScore: 2, awayScore: 0 })
+    ).toBeNull();
+    expect(losingSide({ ...base, homeScore: null, awayScore: null })).toBeNull();
+  });
+});
 
 describe("formatKickoff", () => {
   // A single UTC instant must render in the zone it is given, independent of the

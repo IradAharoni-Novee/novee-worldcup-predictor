@@ -1,13 +1,14 @@
 import { Stage } from "@prisma/client";
-import { R32_FD_ID_TO_FIFA_MATCH } from "@/lib/r32-structure";
+import { R32_FD_ID_TO_FIFA_MATCH, R32_STRUCTURE } from "@/lib/r32-structure";
 import type { ProjectedSlot } from "@/lib/r32-projection";
 
 export type KnockoutSide = {
-  // The team to show once it is known (official, or projected from group
-  // standings for the Round of 32). Null when the side is still a label.
+  // The team to show once it is known: official, projected from group standings
+  // (Round of 32), or the winner of a decided feeding match. Null when the side
+  // is still a label.
   teamId: string | null;
   // What to show when there is no single team yet: the Round of 32 position
-  // ("2nd A"), the Round of 16 team options ("Germany / Scotland"), or a
+  // ("2nd A"), the feeding match's team options ("Germany / Scotland"), or a
   // reference to the feeding match ("Winner of R16 #1").
   label: string;
 };
@@ -56,20 +57,173 @@ export const KNOCKOUT_FD_ID_TO_SLOT: Readonly<
   537389: { round: Stage.THIRD, slot: 0 }, // M103 — Hard Rock Stadium, Miami Gardens
 };
 
-// Abbreviation of the round that feeds a given round's matches.
-const FEEDER_ROUND_LABEL: Partial<Record<Stage, string>> = {
-  [Stage.QF]: "R16",
-  [Stage.SF]: "QF",
-  [Stage.FINAL]: "SF",
-  [Stage.THIRD]: "SF",
+// fdId -> Round of 32 bracket slot, derived from the FIFA-match map so a synced
+// R32 fixture can be located in the feeder tree the same way R16+ ones are.
+const R32_FD_ID_TO_SLOT: Readonly<Record<number, number>> = Object.fromEntries(
+  Object.entries(R32_FD_ID_TO_FIFA_MATCH).map(([fdId, fifaMatch]) => [
+    Number(fdId),
+    R32_STRUCTURE.find((s) => s.fifaMatch === fifaMatch)?.slot ?? -1,
+  ])
+);
+
+// A knockout match's live result, keyed by bracket position so the projection
+// can walk the feeder tree (who won R32 slot 3, who occupies R16 slot 1, …).
+export type KnockoutSlotResult = {
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  advancingTeamId: string | null;
 };
 
-// Resolve what to show for one knockout fixture whose teams aren't both set:
-//   - Round of 32: the team projected into that slot, else its position label.
-//   - Round of 16: the team options from each feeding R32 match ("A / B").
-//   - QF and beyond: a reference to the feeding match ("Winner of R16 #1").
-// Returns null for a finalised fixture, an unknown id, or a group match, so
-// callers fall back to their normal rendering.
+export type KnockoutResults = ReadonlyMap<string, KnockoutSlotResult>;
+
+export type KnockoutMatchInput = {
+  fdId: number;
+  stage: Stage;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  advancingTeamId: string | null;
+};
+
+function slotOf(match: { fdId: number; stage: Stage }): { round: Stage; slot: number } | null {
+  if (match.stage === Stage.R32) {
+    const slot = R32_FD_ID_TO_SLOT[match.fdId];
+    return slot == null || slot < 0 ? null : { round: Stage.R32, slot };
+  }
+  return KNOCKOUT_FD_ID_TO_SLOT[match.fdId] ?? null;
+}
+
+function slotKey(round: Stage, slot: number): string {
+  return `${round}:${slot}`;
+}
+
+// Index every knockout fixture by its bracket position, so the projection can
+// resolve a slot from the winners feeding it.
+export function buildKnockoutResults(matches: KnockoutMatchInput[]): KnockoutResults {
+  const map = new Map<string, KnockoutSlotResult>();
+  for (const m of matches) {
+    const pos = slotOf(m);
+    if (!pos) continue;
+    map.set(slotKey(pos.round, pos.slot), {
+      homeTeamId: m.homeTeamId,
+      awayTeamId: m.awayTeamId,
+      advancingTeamId: m.advancingTeamId,
+    });
+  }
+  return map;
+}
+
+// The round whose winners feed `round`.
+const FEEDER_ROUND: Partial<Record<Stage, Stage>> = {
+  [Stage.R16]: Stage.R32,
+  [Stage.QF]: Stage.R16,
+  [Stage.SF]: Stage.QF,
+  [Stage.FINAL]: Stage.SF,
+  [Stage.THIRD]: Stage.SF,
+};
+
+const ROUND_ABBR: Partial<Record<Stage, string>> = {
+  [Stage.R32]: "R32",
+  [Stage.R16]: "R16",
+  [Stage.QF]: "QF",
+  [Stage.SF]: "SF",
+};
+
+type ResolvedSide = { teamId: string | null; label: string; projected: boolean };
+
+// A side resolves, in order: an official team for that slot; the winner of its
+// decided feeding match (advancingTeamId); the feeding match's two options when
+// both are concrete teams; otherwise a reference label. The Round of 32 seeds
+// from group standings (projected, hence provisional). The cascade means each
+// round rolls forward off the round below as results land — no waiting on the
+// feed to report the matchup.
+function makeResolver(
+  r32Slots: ProjectedSlot[],
+  results: KnockoutResults,
+  resolveName: (teamId: string) => string | undefined
+): (round: Stage, slot: number, side: 0 | 1) => ResolvedSide {
+  const nameOf = (teamId: string, fallback: string): string =>
+    resolveName(teamId) ?? fallback;
+
+  // A short token for one feeder side inside an "A / B" options label: the team
+  // name when known, the Round of 32 position label when that's all we have, or
+  // null when the side itself isn't yet a single concrete team (so the caller
+  // falls back to a "Winner of …" reference instead of nesting options).
+  function optionToken(
+    round: Stage,
+    slot: number,
+    side: 0 | 1
+  ): { text: string; projected: boolean } | null {
+    const r = resolve(round, slot, side);
+    if (r.teamId) return { text: resolveName(r.teamId) ?? r.label, projected: r.projected };
+    if (round === Stage.R32) return { text: r.label, projected: false };
+    return null;
+  }
+
+  function semiFinalLoser(sfSlot: number): string | null {
+    const sf = results.get(slotKey(Stage.SF, sfSlot));
+    if (!sf?.advancingTeamId) return null;
+    for (const side of [0, 1] as const) {
+      const s = resolve(Stage.SF, sfSlot, side);
+      if (s.teamId && s.teamId !== sf.advancingTeamId) return s.teamId;
+    }
+    return null;
+  }
+
+  function resolve(round: Stage, slot: number, side: 0 | 1): ResolvedSide {
+    if (round === Stage.R32) {
+      const result = results.get(slotKey(Stage.R32, slot));
+      const official = side === 0 ? result?.homeTeamId : result?.awayTeamId;
+      const projected = r32Slots[slot];
+      const projId = side === 0 ? projected?.homeId : projected?.awayId;
+      const label = (side === 0 ? projected?.homeLabel : projected?.awayLabel) ?? "TBD";
+      if (official) return { teamId: official, label: nameOf(official, label), projected: false };
+      if (projId) return { teamId: projId, label, projected: true };
+      return { teamId: null, label, projected: false };
+    }
+
+    const result = results.get(slotKey(round, slot));
+    const official = side === 0 ? result?.homeTeamId : result?.awayTeamId;
+    if (official) return { teamId: official, label: nameOf(official, official), projected: false };
+
+    const feederRound = FEEDER_ROUND[round];
+    if (!feederRound) return { teamId: null, label: "TBD", projected: false };
+    const feederSlot = round === Stage.THIRD ? side : slot * 2 + side;
+
+    if (round === Stage.THIRD) {
+      const loserId = semiFinalLoser(feederSlot);
+      if (loserId) return { teamId: loserId, label: nameOf(loserId, loserId), projected: false };
+      return { teamId: null, label: `Loser of SF #${feederSlot + 1}`, projected: false };
+    }
+
+    const feeder = results.get(slotKey(feederRound, feederSlot));
+    if (feeder?.advancingTeamId) {
+      const winner = feeder.advancingTeamId;
+      return { teamId: winner, label: nameOf(winner, winner), projected: false };
+    }
+
+    const home = optionToken(feederRound, feederSlot, 0);
+    const away = optionToken(feederRound, feederSlot, 1);
+    if (home && away) {
+      return {
+        teamId: null,
+        label: `${home.text} / ${away.text}`,
+        projected: home.projected || away.projected,
+      };
+    }
+    return {
+      teamId: null,
+      label: `Winner of ${ROUND_ABBR[feederRound]} #${feederSlot + 1}`,
+      projected: false,
+    };
+  }
+
+  return resolve;
+}
+
+// Resolve what to show for one knockout fixture whose teams aren't both official
+// yet, walking the feeder tree from live results so each round rolls forward as
+// the round below is decided. Returns null for a finalised fixture (both teams
+// official — the caller renders them directly), an unknown id, or a group match.
 export function liveKnockoutMatchup(
   match: {
     fdId: number;
@@ -78,76 +232,32 @@ export function liveKnockoutMatchup(
     awayTeamId: string | null;
   },
   r32Slots: ProjectedSlot[],
-  resolveName: (teamId: string) => string | undefined
+  resolveName: (teamId: string) => string | undefined,
+  results: KnockoutResults = new Map()
 ): KnockoutMatchup | null {
+  const pos = slotOf(match);
+  if (!pos) return null;
   if (match.homeTeamId && match.awayTeamId) return null;
 
-  if (match.stage === Stage.R32) {
-    const fifaMatch = R32_FD_ID_TO_FIFA_MATCH[match.fdId];
-    const slot = r32Slots.find((s) => s.fifaMatch === fifaMatch);
-    if (!slot) return null;
-    const homeProjected = match.homeTeamId == null && slot.homeId != null;
-    const awayProjected = match.awayTeamId == null && slot.awayId != null;
-    return {
-      home: { teamId: match.homeTeamId ?? slot.homeId, label: slot.homeLabel },
-      away: { teamId: match.awayTeamId ?? slot.awayId, label: slot.awayLabel },
-      provisional: homeProjected || awayProjected,
-      matchNo: null,
-    };
-  }
+  // The fixture's own official teams (one side may already be set) take
+  // precedence over anything the feeder tree would project.
+  const merged = new Map(results);
+  const key = slotKey(pos.round, pos.slot);
+  merged.set(key, {
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    advancingTeamId: results.get(key)?.advancingTeamId ?? null,
+  });
 
-  const pos = KNOCKOUT_FD_ID_TO_SLOT[match.fdId];
-  if (!pos || pos.round !== match.stage) return null;
-
-  if (pos.round === Stage.R16) {
-    const feedHome = r32Slots[pos.slot * 2];
-    const feedAway = r32Slots[pos.slot * 2 + 1];
-    if (!feedHome || !feedAway) return null;
-    return {
-      home: {
-        teamId: match.homeTeamId,
-        label: teamOptions(feedHome, resolveName),
-      },
-      away: {
-        teamId: match.awayTeamId,
-        label: teamOptions(feedAway, resolveName),
-      },
-      provisional:
-        (match.homeTeamId == null && hasProjectedTeam(feedHome)) ||
-        (match.awayTeamId == null && hasProjectedTeam(feedAway)),
-      matchNo: pos.slot + 1,
-    };
-  }
-
-  const feeder = FEEDER_ROUND_LABEL[pos.round];
-  if (!feeder) return null;
-  const role = pos.round === Stage.THIRD ? "Loser" : "Winner";
-  const terminal = pos.round === Stage.FINAL || pos.round === Stage.THIRD;
+  const resolve = makeResolver(r32Slots, merged, resolveName);
+  const home = resolve(pos.round, pos.slot, 0);
+  const away = resolve(pos.round, pos.slot, 1);
+  const numbered =
+    pos.round === Stage.R16 || pos.round === Stage.QF || pos.round === Stage.SF;
   return {
-    home: {
-      teamId: match.homeTeamId,
-      label: `${role} of ${feeder} #${pos.slot * 2 + 1}`,
-    },
-    away: {
-      teamId: match.awayTeamId,
-      label: `${role} of ${feeder} #${pos.slot * 2 + 2}`,
-    },
-    provisional: false,
-    matchNo: terminal ? null : pos.slot + 1,
+    home: { teamId: home.teamId, label: home.label },
+    away: { teamId: away.teamId, label: away.label },
+    provisional: home.projected || away.projected,
+    matchNo: numbered ? pos.slot + 1 : null,
   };
-}
-
-// "Germany / Scotland" — the two teams that could win a feeding R32 match,
-// each resolved to its name when known, else its group-position label.
-function teamOptions(
-  slot: ProjectedSlot,
-  resolveName: (teamId: string) => string | undefined
-): string {
-  const home = slot.homeId ? resolveName(slot.homeId) ?? slot.homeLabel : slot.homeLabel;
-  const away = slot.awayId ? resolveName(slot.awayId) ?? slot.awayLabel : slot.awayLabel;
-  return `${home} / ${away}`;
-}
-
-function hasProjectedTeam(slot: ProjectedSlot): boolean {
-  return slot.homeId != null || slot.awayId != null;
 }
