@@ -13,8 +13,13 @@ export type AfFixture = {
   date: string;
   homeName: string;
   awayName: string;
+  // Goals after 120', penalties excluded — API-Football keeps the shootout in a
+  // separate `score.penalty` field, so this is always the clean knockout result.
   homeGoals: number | null;
   awayGoals: number | null;
+  // Penalty-shootout score; both null for any match not decided on penalties.
+  penaltyHome: number | null;
+  penaltyAway: number | null;
   // API-Football status short code: NS, 1H, HT, 2H, ET, BT, P, FT, AET, PEN, …
   statusShort: string;
   // Which side won, including extra time and penalty shootouts (API-Football
@@ -22,7 +27,7 @@ export type AfFixture = {
   winnerSide: "HOME" | "AWAY" | null;
 };
 
-type AfFixtureResponse = {
+export type AfFixtureResponse = {
   errors: unknown;
   response: Array<{
     fixture: { id: number; date: string; status: { short: string } };
@@ -31,6 +36,7 @@ type AfFixtureResponse = {
       away: { name: string; winner: boolean | null };
     };
     goals: { home: number | null; away: number | null };
+    score: { penalty: { home: number | null; away: number | null } };
   }>;
 };
 
@@ -40,7 +46,7 @@ function key(): string {
   return k;
 }
 
-function normalise(res: AfFixtureResponse): AfFixture[] {
+export function normalise(res: AfFixtureResponse): AfFixture[] {
   return res.response.map((f) => ({
     fixtureId: f.fixture.id,
     date: f.fixture.date,
@@ -48,6 +54,8 @@ function normalise(res: AfFixtureResponse): AfFixture[] {
     awayName: f.teams.away.name,
     homeGoals: f.goals.home,
     awayGoals: f.goals.away,
+    penaltyHome: f.score.penalty.home,
+    penaltyAway: f.score.penalty.away,
     statusShort: f.fixture.status.short,
     winnerSide: f.teams.home.winner
       ? "HOME"

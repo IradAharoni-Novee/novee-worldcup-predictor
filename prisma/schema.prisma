@@ -135,6 +135,11 @@ model Match {
   awayTeamId    String?
   homeScore     Int?
   awayScore     Int?
+  // Penalty-shootout score for a knockout decided on penalties; both null
+  // otherwise. The 120' result stays in homeScore/awayScore — these are
+  // display-only and never enter scoring.
+  penaltyHome   Int?
+  penaltyAway   Int?
   // The team that advanced, including extra-time and penalty-shootout results
   // (synced from the feed's winner field). For a knockout decided on penalties
   // the stored score stays a draw, so this is the only record of who went
