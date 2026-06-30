@@ -33,6 +33,30 @@ export function isMatchLive(
   return isLocked(kickoff, now);
 }
 
+// Which side lost a finished match, for dimming it. The lower-scored side, or —
+// when a knockout is level at 120' and went to penalties — the side that didn't
+// advance. Null for a live/unplayed match or a draw with no advancer (group
+// stage), where nothing should dim.
+export function losingSide(match: {
+  status: "SCHEDULED" | "LIVE" | "FINISHED";
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  advancingTeamId?: string | null;
+}): "home" | "away" | null {
+  if (match.status !== "FINISHED" || match.homeScore == null || match.awayScore == null) {
+    return null;
+  }
+  if (match.homeScore !== match.awayScore) {
+    return match.homeScore > match.awayScore ? "away" : "home";
+  }
+  if (match.advancingTeamId == null) return null;
+  if (match.advancingTeamId === match.homeTeamId) return "away";
+  if (match.advancingTeamId === match.awayTeamId) return "home";
+  return null;
+}
+
 /**
  * Short display label for a user: their name, falling back to the local part of
  * their email, truncated to fit a card. Shared by the OG card image routes.

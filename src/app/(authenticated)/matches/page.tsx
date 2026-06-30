@@ -8,7 +8,10 @@ import { prisma } from "@/lib/prisma";
 import { scoreMatchTotal } from "@/lib/scoring";
 import { isMatchLive } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
-import { liveKnockoutMatchup } from "@/lib/knockout-projection";
+import {
+  buildKnockoutResults,
+  liveKnockoutMatchup,
+} from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
 import { veeveeLine } from "@/lib/veevee-voice";
 
@@ -59,6 +62,19 @@ export default async function MatchesPage() {
       }))
   );
   const teamName = (id: string) => teamsById.get(id)?.name;
+  // Live knockout results, so the projection rolls each round's winners into the
+  // next as soon as a match is decided (see liveKnockoutMatchup).
+  const knockoutResults = buildKnockoutResults(
+    matches
+      .filter((m) => m.stage !== "GROUP")
+      .map((m) => ({
+        fdId: m.fdId,
+        stage: m.stage,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        advancingTeamId: m.advancingTeamId,
+      }))
+  );
 
   function liveTeams(m: (typeof matches)[number]): {
     homeTeam: TeamLite;
@@ -71,7 +87,8 @@ export default async function MatchesPage() {
     const live = liveKnockoutMatchup(
       { fdId: m.fdId, stage: m.stage, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId },
       r32Slots,
-      teamName
+      teamName,
+      knockoutResults
     );
     if (!live) {
       return {
@@ -151,6 +168,7 @@ export default async function MatchesPage() {
               awayScore={m.awayScore}
               penaltyHome={m.penaltyHome}
               penaltyAway={m.penaltyAway}
+              advancingTeamId={m.advancingTeamId}
               status={m.status}
               prediction={prediction}
               points={points}

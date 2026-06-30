@@ -3,7 +3,7 @@ import { ArrowUpRight, Info, Lock, MapPin, Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
 import { Chip, type ChipColor } from "@/components/ui/chip";
-import { isLocked, isMatchLive, stageLabel } from "@/lib/format";
+import { isLocked, isMatchLive, losingSide, stageLabel } from "@/lib/format";
 import { InlineScoreEditor } from "@/components/match/inline-score-editor";
 import { LiveBadge } from "@/components/match/live-badge";
 import { TeamRow, type TeamLite } from "@/components/match/team-row";
@@ -26,6 +26,9 @@ export type MatchCardProps = {
   // a penalty-shootout-winner pick for level knockout predictions.
   homeTeamId: string | null;
   awayTeamId: string | null;
+  // The team that advanced. For a knockout decided on penalties the score stays
+  // level, so this is how the card knows which side to dim as the loser.
+  advancingTeamId?: string | null;
   // Bracket position labels (e.g. "2nd A") shown when a knockout team is still
   // undecided, plus `provisional` when the teams shown are projected from live
   // group standings rather than officially set.
@@ -147,6 +150,7 @@ export function MatchCard({
   awayTeam,
   homeTeamId,
   awayTeamId,
+  advancingTeamId,
   homeFallback,
   awayFallback,
   provisional = false,
@@ -162,12 +166,14 @@ export function MatchCard({
 }: MatchCardProps) {
   const locked = isLocked(kickoff) || status !== "SCHEDULED";
   const live = isMatchLive(status, kickoff);
-  const loser =
-    status === "FINISHED" && homeScore != null && awayScore != null && homeScore !== awayScore
-      ? homeScore > awayScore
-        ? "away"
-        : "home"
-      : null;
+  const loser = losingSide({
+    status,
+    homeScore,
+    awayScore,
+    homeTeamId,
+    awayTeamId,
+    advancingTeamId,
+  });
   return (
     <Card
       {...(recentAnchor && { id: "recent-matches", "data-recent-matches": true })}
