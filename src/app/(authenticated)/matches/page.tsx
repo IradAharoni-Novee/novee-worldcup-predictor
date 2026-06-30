@@ -149,6 +149,8 @@ export default async function MatchesPage() {
               provisional={provisional}
               homeScore={m.homeScore}
               awayScore={m.awayScore}
+              penaltyHome={m.penaltyHome}
+              penaltyAway={m.penaltyAway}
               status={m.status}
               prediction={prediction}
               points={points}

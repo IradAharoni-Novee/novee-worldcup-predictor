@@ -34,6 +34,10 @@ export type MatchCardProps = {
   provisional?: boolean;
   homeScore: number | null;
   awayScore: number | null;
+  // Penalty-shootout score (home–away), present only for a knockout decided on
+  // penalties. Shown below the level scoreline; never affects points.
+  penaltyHome?: number | null;
+  penaltyAway?: number | null;
   status: "SCHEDULED" | "LIVE" | "FINISHED";
   prediction?: {
     homeScore: number;
@@ -148,6 +152,8 @@ export function MatchCard({
   provisional = false,
   homeScore,
   awayScore,
+  penaltyHome,
+  penaltyAway,
   status,
   prediction,
   points,
@@ -219,6 +225,14 @@ export function MatchCard({
               dim={loser === "away"}
             />
           </div>
+          {penaltyHome != null && penaltyAway != null && (
+            <p className="px-4 -mt-1 text-center body body-size-small text-[color:var(--color-text-tertiary)]">
+              Penalties:{" "}
+              <span className="code code-size-medium tabular-nums">
+                {penaltyHome}–{penaltyAway}
+              </span>
+            </p>
+          )}
           <div className="px-4 pt-2 border-t border-[color:var(--color-border-secondary)]">
             <div className="flex items-center justify-between">
               <span

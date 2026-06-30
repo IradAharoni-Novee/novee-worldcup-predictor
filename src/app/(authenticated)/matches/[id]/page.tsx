@@ -234,6 +234,15 @@ export default async function MatchDetailPage({
             />
           </div>
 
+          {match.penaltyHome != null && match.penaltyAway != null && (
+            <p className="text-center body body-size-small text-[color:var(--color-text-tertiary)] mb-1">
+              Penalties:{" "}
+              <span className="code code-size-medium tabular-nums">
+                {match.penaltyHome}–{match.penaltyAway}
+              </span>
+            </p>
+          )}
+
           {advancerName && (
             <p className="text-center body body-size-small text-[color:var(--color-text-secondary)] mb-4">
               {advancerName} advanced on penalties

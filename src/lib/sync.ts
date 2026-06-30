@@ -38,37 +38,12 @@ function mapStage(stage: FdMatch["stage"]): Stage {
   }
 }
 
-function mapStatus(status: FdMatch["status"]): MatchStatus {
-  switch (status) {
-    case "IN_PLAY":
-    case "PAUSED":
-      return MatchStatus.LIVE;
-    case "FINISHED":
-      return MatchStatus.FINISHED;
-    default:
-      return MatchStatus.SCHEDULED;
-  }
-}
-
 function groupCode(group: string | null): string | null {
   if (!group) return null;
   // football-data.org returns "GROUP_A" (v4); older payloads use "Group A".
   // Normalise both to a single letter.
   const m = /^(?:Group\s+|GROUP_)([A-Z])$/.exec(group);
   return m?.[1] ?? group;
-}
-
-// Resolve football-data.org's winner code to one of our team ids. FD reports the
-// shootout winner here for penalty-decided knockouts, so it captures advancement
-// the (drawn) score can't. Returns null for draws or undecided matches.
-function fdWinnerToTeamId(
-  winner: FdMatch["score"]["winner"],
-  homeTeamId: string | null,
-  awayTeamId: string | null
-): string | null {
-  if (winner === "HOME_TEAM") return homeTeamId;
-  if (winner === "AWAY_TEAM") return awayTeamId;
-  return null;
 }
 
 export type SyncResult = {
@@ -110,20 +85,15 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   });
   const teamIdByFd = new Map(allTeams.map((t) => [t.fdId, t.id]));
 
-  // Current score/status/teams per match, so a lagging FD feed can't overwrite
-  // scores the per-minute live sync already wrote (see reconcileScore) or null
-  // out knockout teams we already know (see reconcileTeamId).
+  // Existing teams per match. FD's free tier reports knockout matchups as null
+  // long after they're set, so keep the teams we already know (see
+  // reconcileTeamId). Scores, status, penalties, and advancement are owned by
+  // the per-minute API-Football sync (syncLiveScores) — this feed writes only
+  // structure (stage, group, kickoff, teams), so a lagging or quirky FD result
+  // can never clobber the real one.
   const existing = await prisma.match.findMany({
     where: { fdId: { in: matches.map((m) => m.id) } },
-    select: {
-      fdId: true,
-      status: true,
-      homeScore: true,
-      awayScore: true,
-      homeTeamId: true,
-      awayTeamId: true,
-      advancingTeamId: true,
-    },
+    select: { fdId: true, homeTeamId: true, awayTeamId: true },
   });
   const existingByFd = new Map(existing.map((m) => [m.fdId, m]));
 
@@ -131,35 +101,14 @@ export async function syncFromFootballData(): Promise<SyncResult> {
     const homeId = m.homeTeam?.id ? teamIdByFd.get(m.homeTeam.id) ?? null : null;
     const awayId = m.awayTeam?.id ? teamIdByFd.get(m.awayTeam.id) ?? null : null;
     const prev = existingByFd.get(m.id);
-    const score = reconcileScore(
-      {
-        status: mapStatus(m.status),
-        home: m.score.fullTime.home,
-        away: m.score.fullTime.away,
-      },
-      prev
-        ? { status: prev.status, home: prev.homeScore, away: prev.awayScore }
-        : null
-    );
-    const stage = mapStage(m.stage);
-    const homeTeamId = reconcileTeamId(homeId, prev?.homeTeamId);
-    const awayTeamId = reconcileTeamId(awayId, prev?.awayTeamId);
-    // Advancement only applies to knockouts. As with score/team, a lagging FD
-    // feed that hasn't reported a winner yet (null) must not wipe a value the
-    // live sync already wrote — keep the existing one until FD carries a winner.
-    const incomingAdvancing = isKnockout(stage)
-      ? fdWinnerToTeamId(m.score.winner, homeTeamId, awayTeamId)
-      : null;
+    // A freshly-created row defaults to status SCHEDULED with null scores; the
+    // live sync fills the result once the match kicks off.
     const fields = {
-      stage,
+      stage: mapStage(m.stage),
       group: groupCode(m.group),
       kickoff: new Date(m.utcDate),
-      homeTeamId,
-      awayTeamId,
-      homeScore: score.home,
-      awayScore: score.away,
-      advancingTeamId: incomingAdvancing ?? prev?.advancingTeamId ?? null,
-      status: score.status,
+      homeTeamId: reconcileTeamId(homeId, prev?.homeTeamId),
+      awayTeamId: reconcileTeamId(awayId, prev?.awayTeamId),
     };
     await prisma.match.upsert({
       where: { fdId: m.id },
@@ -217,32 +166,6 @@ export function pickFixture(
     { homeName: match.homeName, awayName: match.awayName, kickoff: match.kickoff },
     fixtures
   );
-}
-
-type ScoreState = {
-  status: MatchStatus;
-  home: number | null;
-  away: number | null;
-};
-
-// Decide which score/status the daily football-data.org sync should persist.
-// FD's free tier can still report a match as not-started with no score long
-// after kickoff (it reported the World Cup opener as TIMED a day later), while
-// the per-minute API-Football live sync has already written the real result.
-// Don't let the lagging feed clobber fresher data: keep what we have whenever FD
-// brings nothing new. FD still wins once it carries a score or a non-scheduled
-// status, so a genuine correction propagates.
-export function reconcileScore(incoming: ScoreState, existing: ScoreState | null): ScoreState {
-  if (!existing) return incoming;
-  const incomingHasNothing =
-    incoming.status === MatchStatus.SCHEDULED &&
-    incoming.home === null &&
-    incoming.away === null;
-  const existingHasProgress =
-    existing.status !== MatchStatus.SCHEDULED ||
-    existing.home !== null ||
-    existing.away !== null;
-  return incomingHasNothing && existingHasProgress ? existing : incoming;
 }
 
 // Decide which team to keep for a fixture's side. football-data.org's free tier
@@ -314,6 +237,8 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
       data: {
         homeScore: fixture.homeGoals,
         awayScore: fixture.awayGoals,
+        penaltyHome: fixture.penaltyHome,
+        penaltyAway: fixture.penaltyAway,
         status,
         advancingTeamId,
       },

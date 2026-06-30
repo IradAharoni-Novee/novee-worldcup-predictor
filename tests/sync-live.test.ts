@@ -3,7 +3,6 @@ import { MatchStatus } from "@prisma/client";
 import {
   mapApiFootballStatus,
   pickFixture,
-  reconcileScore,
   reconcileTeamId,
 } from "@/lib/sync";
 import type { AfFixture } from "@/lib/api-football";
@@ -16,6 +15,8 @@ function fixture(overrides: Partial<AfFixture>): AfFixture {
     awayName: "South Africa",
     homeGoals: 1,
     awayGoals: 0,
+    penaltyHome: null,
+    penaltyAway: null,
     statusShort: "1H",
     winnerSide: null,
     ...overrides,
@@ -106,32 +107,6 @@ describe("pickFixture", () => {
       fixture({ fixtureId: 2, homeName: "Brazil", awayName: "South Africa" }),
     ]);
     expect(f).toBeNull();
-  });
-});
-
-describe("reconcileScore", () => {
-  const live = { status: MatchStatus.LIVE, home: 1, away: 1 };
-  const finished = { status: MatchStatus.FINISHED, home: 2, away: 0 };
-  const fdNothing = { status: MatchStatus.SCHEDULED, home: null, away: null };
-
-  it("takes the incoming value for a brand-new match", () => {
-    expect(reconcileScore(finished, null)).toEqual(finished);
-  });
-
-  it("keeps the existing live score when FD still reports nothing", () => {
-    expect(reconcileScore(fdNothing, live)).toEqual(live);
-  });
-
-  it("keeps a finished result when FD still reports nothing", () => {
-    expect(reconcileScore(fdNothing, finished)).toEqual(finished);
-  });
-
-  it("accepts FD once it carries a score", () => {
-    expect(reconcileScore(finished, live)).toEqual(finished);
-  });
-
-  it("does not block a fresh scheduled match with no progress yet", () => {
-    expect(reconcileScore(fdNothing, fdNothing)).toEqual(fdNothing);
   });
 });
 
