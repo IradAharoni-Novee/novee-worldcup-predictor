@@ -97,22 +97,29 @@ export function PredictionForm({
         name="shootoutWinnerTeamId"
         value={showShootout ? shootout ?? "" : ""}
       />
-      <div className="flex items-center justify-center gap-3">
-        <ScoreSpinner
-          name="homeScore"
-          value={home}
-          onChange={setHome}
-          ariaLabel="Home team score"
-        />
-        <span className="heading text-2xl text-[color:var(--color-text-secondary)]">
-          –
-        </span>
-        <ScoreSpinner
-          name="awayScore"
-          value={away}
-          onChange={setAway}
-          ariaLabel="Away team score"
-        />
+      <div className="flex flex-col items-center gap-1.5">
+        {knockout && (
+          <p className="body body-size-small text-[color:var(--color-text-secondary)] text-center">
+            Score after extra time (120&apos;)
+          </p>
+        )}
+        <div className="flex items-center justify-center gap-3">
+          <ScoreSpinner
+            name="homeScore"
+            value={home}
+            onChange={setHome}
+            ariaLabel="Home team score"
+          />
+          <span className="heading text-2xl text-[color:var(--color-text-secondary)]">
+            –
+          </span>
+          <ScoreSpinner
+            name="awayScore"
+            value={away}
+            onChange={setAway}
+            ariaLabel="Away team score"
+          />
+        </div>
       </div>
       {showShootout && (
         <fieldset className="flex flex-col gap-2 items-center">
@@ -131,6 +138,9 @@ export function PredictionForm({
               onSelect={() => setShootout(awayTeamId)}
             />
           </div>
+          <p className="body body-size-xsmall text-[color:var(--color-text-tertiary)]">
+            Optional — but picking earns a bonus point.
+          </p>
         </fieldset>
       )}
       <div className="flex flex-col gap-1">
