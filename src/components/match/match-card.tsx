@@ -191,6 +191,11 @@ export function MatchCard({
               #{matchNo}
             </span>
           )}
+          {stage !== "GROUP" && (
+            <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+              incl. extra time (120&apos;)
+            </span>
+          )}
           {live && <LiveBadge />}
           {status === "FINISHED" && points != null && (
             <Chip
