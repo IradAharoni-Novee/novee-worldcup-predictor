@@ -17,11 +17,8 @@ import { PageContainer } from "@/components/shell/page-container";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
 import { isLocked, isMatchLive, losingSide, stageLabel } from "@/lib/format";
-import { projectR32Slots } from "@/lib/r32-projection";
-import {
-  buildKnockoutResults,
-  liveKnockoutMatchup,
-} from "@/lib/knockout-projection";
+import { determinedMatchupTeams } from "@/lib/knockout-projection";
+import { loadLiveKnockoutMatchup } from "@/lib/knockout-live";
 import { withRetry } from "@/lib/retry";
 import { isKnockout, scoreMatchTotal } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
@@ -296,8 +293,8 @@ export default async function MatchDetailPage({
             initial={prediction}
             locked={locked}
             knockout={isKnockout(match.stage)}
-            homeTeamId={match.homeTeamId}
-            awayTeamId={match.awayTeamId}
+            homeTeamId={liveKo?.homeTeamId ?? match.homeTeamId}
+            awayTeamId={liveKo?.awayTeamId ?? match.awayTeamId}
             homeTeamName={homeTeam?.name ?? "Home"}
             awayTeamName={awayTeam?.name ?? "Away"}
           />
@@ -399,52 +396,25 @@ async function resolveLiveKnockoutMatchup(match: {
   awayFallback: string;
   provisional: boolean;
   matchNo: number | null;
+  // The ids the prediction form uses for its shootout-winner pick: null while
+  // the matchup is still a group-standings projection, the resolved teams once
+  // it is decided by prior-round results (see determinedMatchupTeams).
+  homeTeamId: string | null;
+  awayTeamId: string | null;
 } | null> {
-  if (match.stage === "GROUP" || (match.homeTeamId && match.awayTeamId)) {
-    return null;
-  }
-  const [groupMatches, knockoutMatches, teams] = await withRetry(() =>
-    Promise.all([
-      prisma.match.findMany({
-        where: { stage: "GROUP", group: { not: null } },
-        select: {
-          group: true,
-          homeTeamId: true,
-          awayTeamId: true,
-          homeScore: true,
-          awayScore: true,
-        },
-      }),
-      prisma.match.findMany({
-        where: { stage: { not: "GROUP" } },
-        select: {
-          fdId: true,
-          stage: true,
-          homeTeamId: true,
-          awayTeamId: true,
-          advancingTeamId: true,
-        },
-      }),
-      prisma.team.findMany({
-        select: { id: true, name: true, code: true, flag: true },
-      }),
-    ])
-  );
-  const byId = new Map(teams.map((t) => [t.id, t]));
-  const matchup = liveKnockoutMatchup(
-    match,
-    projectR32Slots(groupMatches.map((m) => ({ ...m, group: m.group as string }))),
-    (id) => byId.get(id)?.name,
-    buildKnockoutResults(knockoutMatches)
-  );
-  if (!matchup) return null;
+  const resolved = await loadLiveKnockoutMatchup(match);
+  if (!resolved) return null;
+  const { matchup, teamsById } = resolved;
+  const determined = determinedMatchupTeams(matchup);
   return {
-    homeTeam: matchup.home.teamId ? byId.get(matchup.home.teamId) ?? null : null,
-    awayTeam: matchup.away.teamId ? byId.get(matchup.away.teamId) ?? null : null,
+    homeTeam: matchup.home.teamId ? teamsById.get(matchup.home.teamId) ?? null : null,
+    awayTeam: matchup.away.teamId ? teamsById.get(matchup.away.teamId) ?? null : null,
     homeFallback: matchup.home.label,
     awayFallback: matchup.away.label,
     provisional: matchup.provisional,
     matchNo: matchup.matchNo,
+    homeTeamId: determined?.homeTeamId ?? null,
+    awayTeamId: determined?.awayTeamId ?? null,
   };
 }
 
