@@ -4,6 +4,7 @@ import { projectR32Slots, type ProjectedGroupMatch } from "@/lib/r32-projection"
 import {
   liveKnockoutMatchup,
   buildKnockoutResults,
+  determinedMatchupTeams,
   KNOCKOUT_FD_ID_TO_SLOT,
 } from "@/lib/knockout-projection";
 
@@ -197,6 +198,47 @@ describe("liveKnockoutMatchup — the cascade rolls winners forward", () => {
     expect(m.home.teamId).toBe("E1");
     expect(m.away.teamId).toBe("A2");
     expect(m.provisional).toBe(false);
+  });
+});
+
+describe("determinedMatchupTeams", () => {
+  it("returns the two teams once a Round of 16 side pair is decided", () => {
+    // Both R32 feeders of R16 slot 1 decided -> real teams, not a projection.
+    const m = ko(
+      537376,
+      Stage.R16,
+      NONE,
+      completeSlots,
+      results(won(537417, Stage.R32, "A2"), won(537418, Stage.R32, "F1"))
+    );
+    expect(determinedMatchupTeams(m)).toEqual({
+      homeTeamId: "A2",
+      awayTeamId: "F1",
+    });
+  });
+
+  it("is null for a Round of 32 matchup still projected from group standings", () => {
+    const m = ko(537417, Stage.R32, NONE);
+    expect(m!.provisional).toBe(true);
+    expect(determinedMatchupTeams(m)).toBeNull();
+  });
+
+  it("is null when only one side is decided", () => {
+    const m = ko(
+      537376,
+      Stage.R16,
+      NONE,
+      completeSlots,
+      results(won(537417, Stage.R32, "A2"))
+    );
+    expect(determinedMatchupTeams(m)).toBeNull();
+  });
+
+  it("is null for a finalised or group fixture (no live matchup)", () => {
+    expect(determinedMatchupTeams(null)).toBeNull();
+    expect(
+      determinedMatchupTeams(ko(537417, Stage.R32, { homeTeamId: "A2", awayTeamId: "B2" }))
+    ).toBeNull();
   });
 });
 

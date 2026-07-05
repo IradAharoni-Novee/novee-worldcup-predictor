@@ -261,3 +261,17 @@ export function liveKnockoutMatchup(
     matchNo: numbered ? pos.slot + 1 : null,
   };
 }
+
+// The two teams a knockout fixture is actually contested between, or null while
+// the matchup can still change. A matchup rolled forward from decided prior
+// rounds is determined — its teams are real — whereas one still projected from
+// live group standings (provisional) or only partly resolved is not. Used to
+// decide when a shootout-winner pick can be offered and stored for a fixture the
+// feed hasn't formally populated yet.
+export function determinedMatchupTeams(
+  matchup: KnockoutMatchup | null
+): { homeTeamId: string; awayTeamId: string } | null {
+  if (!matchup || matchup.provisional) return null;
+  if (matchup.home.teamId == null || matchup.away.teamId == null) return null;
+  return { homeTeamId: matchup.home.teamId, awayTeamId: matchup.away.teamId };
+}

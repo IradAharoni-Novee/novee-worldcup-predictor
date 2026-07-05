@@ -10,6 +10,7 @@ import { isMatchLive } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
 import {
   buildKnockoutResults,
+  determinedMatchupTeams,
   liveKnockoutMatchup,
 } from "@/lib/knockout-projection";
 import { withRetry } from "@/lib/retry";
@@ -76,6 +77,10 @@ export default async function MatchesPage() {
       }))
   );
 
+  // `homeTeamId`/`awayTeamId` are the ids the inline editor uses for its
+  // shootout-winner pick: the record's when set, otherwise the teams resolved
+  // from the live cascade once the matchup is determined (null while still a
+  // group-standings projection). See determinedMatchupTeams.
   function liveTeams(m: (typeof matches)[number]): {
     homeTeam: TeamLite;
     awayTeam: TeamLite;
@@ -83,6 +88,8 @@ export default async function MatchesPage() {
     awayFallback?: string;
     provisional: boolean;
     matchNo: number | null;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
   } {
     const live = liveKnockoutMatchup(
       { fdId: m.fdId, stage: m.stage, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId },
@@ -96,8 +103,11 @@ export default async function MatchesPage() {
         awayTeam: m.awayTeam,
         provisional: false,
         matchNo: null,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
       };
     }
+    const determined = determinedMatchupTeams(live);
     return {
       homeTeam: live.home.teamId ? teamsById.get(live.home.teamId) ?? null : null,
       awayTeam: live.away.teamId ? teamsById.get(live.away.teamId) ?? null : null,
@@ -105,6 +115,8 @@ export default async function MatchesPage() {
       awayFallback: live.away.label,
       provisional: live.provisional,
       matchNo: live.matchNo,
+      homeTeamId: determined?.homeTeamId ?? null,
+      awayTeamId: determined?.awayTeamId ?? null,
     };
   }
 
@@ -144,8 +156,16 @@ export default async function MatchesPage() {
                   advancingTeamId: m.advancingTeamId,
                 })
               : null;
-          const { homeTeam, awayTeam, homeFallback, awayFallback, provisional, matchNo } =
-            liveTeams(m);
+          const {
+            homeTeam,
+            awayTeam,
+            homeFallback,
+            awayFallback,
+            provisional,
+            matchNo,
+            homeTeamId,
+            awayTeamId,
+          } = liveTeams(m);
           return (
             <MatchCard
               key={m.id}
@@ -159,8 +179,8 @@ export default async function MatchesPage() {
               country={m.country}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
-              homeTeamId={m.homeTeamId}
-              awayTeamId={m.awayTeamId}
+              homeTeamId={homeTeamId}
+              awayTeamId={awayTeamId}
               homeFallback={homeFallback}
               awayFallback={awayFallback}
               provisional={provisional}
