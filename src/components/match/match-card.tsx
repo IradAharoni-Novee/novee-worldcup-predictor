@@ -193,7 +193,7 @@ export function MatchCard({
           )}
           {stage !== "GROUP" && (
             <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
-              incl. extra time (120&apos;)
+              incl. extra time
             </span>
           )}
           {live && <LiveBadge />}
