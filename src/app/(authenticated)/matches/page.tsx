@@ -5,6 +5,7 @@ import { LiveScoreRefresher } from "@/components/match/live-score-refresher";
 import { JumpToRecent } from "@/components/match/jump-to-recent";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getScoringConfig } from "@/lib/leaderboard";
 import { scoreMatchTotal } from "@/lib/scoring";
 import { isMatchLive } from "@/lib/format";
 import { projectR32Slots } from "@/lib/r32-projection";
@@ -20,7 +21,7 @@ export default async function MatchesPage() {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [matches, teams] = await withRetry(() =>
+  const [matches, teams, scoring] = await withRetry(() =>
     Promise.all([
       prisma.match.findMany({
         orderBy: { kickoff: "asc" },
@@ -43,6 +44,7 @@ export default async function MatchesPage() {
       prisma.team.findMany({
         select: { id: true, name: true, code: true, flag: true },
       }),
+      getScoringConfig(),
     ])
   );
 
@@ -147,14 +149,18 @@ export default async function MatchesPage() {
           const prediction = m.predictions?.[0] ?? null;
           const points =
             m.status === "FINISHED"
-              ? scoreMatchTotal(prediction, {
-                  stage: m.stage,
-                  homeTeamId: m.homeTeamId,
-                  awayTeamId: m.awayTeamId,
-                  homeScore: m.homeScore,
-                  awayScore: m.awayScore,
-                  advancingTeamId: m.advancingTeamId,
-                })
+              ? scoreMatchTotal(
+                  prediction,
+                  {
+                    stage: m.stage,
+                    homeTeamId: m.homeTeamId,
+                    awayTeamId: m.awayTeamId,
+                    homeScore: m.homeScore,
+                    awayScore: m.awayScore,
+                    advancingTeamId: m.advancingTeamId,
+                  },
+                  scoring
+                )
               : null;
           const {
             homeTeam,
