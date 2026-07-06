@@ -179,20 +179,21 @@ export function MatchCard({
       {...(recentAnchor && { id: "recent-matches", "data-recent-matches": true })}
       className="gap-3 py-4 scroll-mt-20 hover:border-[color:var(--color-border-hover)] transition-colors"
     >
-      <div className="flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-start justify-between gap-2 px-4">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <Chip
             size="small"
             color={stageChipColor(stage)}
+            className="whitespace-nowrap"
             label={stageLabel(stage, group)}
           />
           {matchNo != null && (
-            <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+            <span className="body body-size-small text-[color:var(--color-text-tertiary)] whitespace-nowrap">
               #{matchNo}
             </span>
           )}
           {stage !== "GROUP" && (
-            <span className="body body-size-small text-[color:var(--color-text-tertiary)]">
+            <span className="body body-size-small text-[color:var(--color-text-tertiary)] whitespace-nowrap">
               incl. extra time
             </span>
           )}
@@ -201,6 +202,7 @@ export function MatchCard({
             <Chip
               size="small"
               color={points > 0 ? "green" : "slate"}
+              className="whitespace-nowrap"
               label={
                 <span className="flex items-center gap-1">
                   <Trophy className="size-3" />
@@ -212,7 +214,7 @@ export function MatchCard({
         </div>
         <Link
           href={`/matches/${id}`}
-          className="inline-flex items-center gap-1 body body-size-small text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
+          className="inline-flex shrink-0 items-center gap-1 body body-size-small text-[color:var(--color-text-secondary)] whitespace-nowrap hover:text-[color:var(--color-text-primary)]"
           aria-label="Match details"
         >
           <LocalKickoff date={kickoff} />
