@@ -1,5 +1,3 @@
-import { prisma } from "@/lib/prisma";
-
 export type ScoreBucket = {
   score: string;
   homeScore: number;
@@ -9,18 +7,15 @@ export type ScoreBucket = {
 };
 
 /**
- * Aggregate all predictions for a single match into a sorted list of score
- * buckets. Used by the post-kickoff "what did the room pick" histogram.
+ * Aggregate a match's predictions into a sorted list of score buckets. Used by
+ * the post-kickoff "what did the room pick" histogram. Pure so the match page
+ * can feed it from the same consolidated predictions query that powers the
+ * contenders list and hot takes.
  */
-export async function getPickAggregates(matchId: string): Promise<{
+export function bucketScores(picks: { homeScore: number; awayScore: number }[]): {
   total: number;
   buckets: ScoreBucket[];
-}> {
-  const picks = await prisma.prediction.findMany({
-    where: { matchId },
-    select: { homeScore: true, awayScore: true },
-  });
-
+} {
   if (picks.length === 0) return { total: 0, buckets: [] };
 
   const counts = new Map<string, ScoreBucket>();

@@ -55,7 +55,8 @@ export type VoiceCategory =
   | "konami"
   | "hotTakeReveal"
   | "consensus"
-  | "contrarian";
+  | "contrarian"
+  | "contenders";
 
 const LINES: Record<VoiceCategory, readonly string[]> = {
   emptyMe: [
@@ -126,6 +127,12 @@ const LINES: Record<VoiceCategory, readonly string[]> = {
   contrarian: [
     "Bold. Lonely. Possibly correct.",
     "VeeVee respects a hot take. The leaderboard does not.",
+  ],
+  contenders: [
+    "Elad Meged has refreshed this table 47 times today. VeeVee counted.",
+    "The room, ranked. VeeVee takes no sides. Officially.",
+    "Everyone's picks, scored without mercy.",
+    "Ninety minutes decide who gets to be smug. VeeVee keeps the tally.",
   ],
 };
 
