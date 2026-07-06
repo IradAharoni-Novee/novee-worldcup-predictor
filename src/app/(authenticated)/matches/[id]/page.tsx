@@ -23,7 +23,10 @@ import { withRetry } from "@/lib/retry";
 import { isKnockout, scoreMatchTotal } from "@/lib/scoring";
 import type { Stage } from "@prisma/client";
 import { veeveeLine } from "@/lib/veevee-voice";
-import { getPickAggregates } from "@/lib/pick-aggregates";
+import { getScoringConfig } from "@/lib/leaderboard";
+import { bucketScores } from "@/lib/pick-aggregates";
+import { rankContenders } from "@/lib/match-contenders";
+import { MatchContenders } from "@/components/match/match-contenders";
 import { PickHistogram } from "@/components/match/pick-histogram";
 
 function stageChipColor(stage: Stage): ChipColor {
@@ -86,16 +89,46 @@ export default async function MatchDetailPage({
     advancingTeamId: match.advancingTeamId,
   });
   const locationParts = [match.city, match.country].filter(Boolean);
+
+  // Once locked, one query serves every room surface below: the contenders
+  // ranking, the pick histogram, and the attributed hot takes. Before kickoff
+  // other users' predictions stay private, so the fetch itself is gated.
+  const [scoring, roomPredictions] = await withRetry(() =>
+    Promise.all([
+      getScoringConfig(),
+      locked
+        ? prisma.prediction.findMany({
+            where: { matchId: id },
+            select: {
+              id: true,
+              note: true,
+              homeScore: true,
+              awayScore: true,
+              shootoutWinnerTeamId: true,
+              userId: true,
+              user: {
+                select: { id: true, name: true, image: true, email: true },
+              },
+            },
+          })
+        : Promise.resolve([]),
+    ])
+  );
+
   const points =
     match.status === "FINISHED"
-      ? scoreMatchTotal(prediction, {
-          stage: match.stage,
-          homeTeamId: match.homeTeamId,
-          awayTeamId: match.awayTeamId,
-          homeScore: match.homeScore,
-          awayScore: match.awayScore,
-          advancingTeamId: match.advancingTeamId,
-        })
+      ? scoreMatchTotal(
+          prediction,
+          {
+            stage: match.stage,
+            homeTeamId: match.homeTeamId,
+            awayTeamId: match.awayTeamId,
+            homeScore: match.homeScore,
+            awayScore: match.awayScore,
+            advancingTeamId: match.advancingTeamId,
+          },
+          scoring
+        )
       : null;
 
   // A knockout left level at 120' but with an advancer was decided on penalties.
@@ -112,35 +145,42 @@ export default async function MatchDetailPage({
           : null
       : null;
 
-  // After kickoff, surface everyone's hot takes (attributed to their authors)
-  // and the pick histogram. Hot takes skip the current user's note since it's
-  // shown above in the locked summary.
-  const [hotTakes, aggregates] = await withRetry(() =>
-    Promise.all([
-      locked
-        ? prisma.prediction.findMany({
-            where: {
-              matchId: id,
-              note: { not: null },
-              userId: { not: userId },
-            },
-            select: {
-              id: true,
-              note: true,
-              homeScore: true,
-              awayScore: true,
-              user: {
-                select: { id: true, name: true, image: true, email: true },
-              },
-            },
-            take: 50,
-          })
-        : Promise.resolve([]),
-      locked
-        ? getPickAggregates(id)
-        : Promise.resolve({ total: 0, buckets: [] }),
-    ])
+  // Post-kickoff room surfaces, all derived from the one predictions query.
+  // Hot takes skip the current user's note since it's shown above in the
+  // locked summary.
+  const hotTakes = roomPredictions
+    .filter((p) => p.note !== null && p.userId !== userId)
+    .slice(0, 50);
+  const aggregates = bucketScores(roomPredictions);
+  const contenders = rankContenders(
+    roomPredictions,
+    {
+      stage: match.stage,
+      status: match.status,
+      homeTeamId: match.homeTeamId,
+      awayTeamId: match.awayTeamId,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      advancingTeamId: match.advancingTeamId,
+    },
+    scoring
   );
+  // The two sides (once known), for labelling drawn picks' shootout calls.
+  const contenderTeams: { id: string; code: string; name: string }[] = [];
+  if (match.homeTeamId && match.homeTeam) {
+    contenderTeams.push({
+      id: match.homeTeamId,
+      code: match.homeTeam.code,
+      name: match.homeTeam.name,
+    });
+  }
+  if (match.awayTeamId && match.awayTeam) {
+    contenderTeams.push({
+      id: match.awayTeamId,
+      code: match.awayTeam.code,
+      name: match.awayTeam.name,
+    });
+  }
 
   const consensusForUser =
     prediction && aggregates.buckets[0]
@@ -300,6 +340,29 @@ export default async function MatchDetailPage({
           />
         </CardContent>
       </Card>
+
+      {locked && contenders.length > 0 && (
+        <section className="mt-6">
+          <h2 className="subheading subheading-size-large subheading-weight-medium mb-1">
+            Contenders
+          </h2>
+          <p className="body body-size-small text-[color:var(--color-text-tertiary)] mb-3 italic">
+            {veeveeLine("contenders", id)}
+          </p>
+          <MatchContenders
+            rows={contenders}
+            currentUserId={userId}
+            teams={contenderTeams}
+          />
+          {live && (
+            <p className="body body-size-xsmall text-[color:var(--color-text-tertiary)] mt-2">
+              {hasScore
+                ? "Provisional — scored at the current scoreline; updates as the match plays out."
+                : "Waiting for the first score sync — points land once a scoreline does."}
+            </p>
+          )}
+        </section>
+      )}
 
       {locked && aggregates.total > 0 && (
         <section className="mt-6">
