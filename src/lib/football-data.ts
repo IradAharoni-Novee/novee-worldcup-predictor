@@ -12,13 +12,22 @@ type FdTeam = {
   crest: string | null;
 };
 
-type FdScore = {
+type FdSide = { home: number | null; away: number | null };
+
+export type FdScore = {
   // For a finished knockout this reflects who went through, including extra time
   // and penalty shootouts (the shootout winner). "DRAW" only occurs for group
   // matches; null while the match is unplayed or in progress.
   winner: "HOME_TEAM" | "AWAY_TEAM" | "DRAW" | null;
-  fullTime: { home: number | null; away: number | null };
-  halfTime: { home: number | null; away: number | null };
+  // REGULAR until a knockout goes past 90'. Beyond that the breakdown fields
+  // appear alongside fullTime — and for PENALTY_SHOOTOUT, fullTime includes
+  // the shootout goals themselves (e.g. 1-1 + pens 3-4 shows as 4-5).
+  duration: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
+  fullTime: FdSide;
+  halfTime: FdSide;
+  regularTime?: FdSide;
+  extraTime?: FdSide;
+  penalties?: FdSide;
 };
 
 export type FdMatch = {
