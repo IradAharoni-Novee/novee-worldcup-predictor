@@ -6,6 +6,9 @@ import next from "eslint-config-next";
 // (.next, out, build, next-env.d.ts).
 /** @type {import("eslint").Linter.Config[]} */
 const eslintConfig = [
+  // Session worktrees carry their own .next build output, which the default
+  // ignores (root-relative) don't cover.
+  { ignores: [".claude/"] },
   ...next,
   {
     rules: {

@@ -4,12 +4,9 @@ import {
   fetchWorldCupMatches,
   fetchWorldCupSquads,
   type FdMatch,
+  type FdScore,
 } from "@/lib/football-data";
 import { fetchEspnDay, type EspnEvent } from "@/lib/espn";
-import {
-  fetchWorldCupFixturesByDate,
-  type AfFixture,
-} from "@/lib/api-football";
 import { fetchCurrentOdds } from "@/lib/odds-api";
 import { isKnockout } from "@/lib/scoring";
 import {
@@ -120,52 +117,48 @@ export async function syncFromFootballData(): Promise<SyncResult> {
   return { teamsUpserted: teamsById.size, matchesUpserted: matches.length };
 }
 
-// Map an API-Football fixture status short code to our MatchStatus. Returns
-// null for statuses that carry no usable result (not started, postponed,
-// cancelled, …) so the sync leaves those matches untouched.
-export function mapApiFootballStatus(short: string): MatchStatus | null {
-  switch (short) {
-    case "1H":
-    case "HT":
-    case "2H":
-    case "ET":
-    case "BT":
-    case "P":
-    case "SUSP":
-    case "INT":
-    case "LIVE":
+// Map a football-data.org match status to ours. Returns null for statuses
+// that carry no usable result (not started, postponed, cancelled, suspended,
+// …) so the sync leaves those matches untouched.
+export function mapFdStatus(status: FdMatch["status"]): MatchStatus | null {
+  switch (status) {
+    case "IN_PLAY":
+    case "PAUSED":
       return MatchStatus.LIVE;
-    case "FT":
-    case "AET":
-    case "PEN":
+    case "FINISHED":
       return MatchStatus.FINISHED;
     default:
       return null;
   }
 }
 
-type LiveMatch = {
-  id: string;
-  kickoff: Date;
-  homeName: string;
-  awayName: string;
-  stage: Stage;
-  homeTeamId: string | null;
-  awayTeamId: string | null;
-};
-
-// Pair a DB match with the API-Football fixture at the same kickoff minute,
-// using the shared team/kickoff reconciliation rules (see match-reconcile.ts).
-// Takes only the fields it reconciles on, so callers (and tests) needn't supply
-// the rest of a LiveMatch.
-export function pickFixture(
-  match: { homeName: string; awayName: string; kickoff: Date },
-  fixtures: AfFixture[]
-): AfFixture | null {
-  return pickByTeamsAtMinute(
-    { homeName: match.homeName, awayName: match.awayName, kickoff: match.kickoff },
-    fixtures
-  );
+// The score line the app stores: goals after at most 120', shootout separate.
+// FD's fullTime includes shootout goals when duration is PENALTY_SHOOTOUT, so
+// the 120' line there is regularTime + extraTime; for REGULAR and EXTRA_TIME
+// durations fullTime is already that line (the current score while in play).
+// Returns null while FD hasn't published the needed fields, so the sync skips
+// the match until the next tick.
+export function fdResult(score: FdScore): {
+  homeScore: number;
+  awayScore: number;
+  penaltyHome: number | null;
+  penaltyAway: number | null;
+} | null {
+  if (score.duration === "PENALTY_SHOOTOUT") {
+    const { regularTime: rt, extraTime: et, penalties: p } = score;
+    if (rt?.home == null || rt.away == null) return null;
+    if (et?.home == null || et.away == null) return null;
+    if (p?.home == null || p.away == null) return null;
+    return {
+      homeScore: rt.home + et.home,
+      awayScore: rt.away + et.away,
+      penaltyHome: p.home,
+      penaltyAway: p.away,
+    };
+  }
+  const ft = score.fullTime;
+  if (ft.home == null || ft.away == null) return null;
+  return { homeScore: ft.home, awayScore: ft.away, penaltyHome: null, penaltyAway: null };
 }
 
 // Decide which team to keep for a fixture's side. football-data.org's free tier
@@ -182,10 +175,12 @@ export function reconcileTeamId(
   return incoming ?? existing ?? null;
 }
 
-// Per-minute live-score sync. Pulls current scores + status from API-Football
-// (which refreshes in-play fixtures every ~15s) for matches that have kicked
-// off but aren't finished, and writes score + status. Querying by date — not
-// the live-only feed — also captures the final score as a match ends. Unlike
+// Per-minute live-score sync. Pulls current scores + status from
+// football-data.org for matches that have kicked off but aren't finished, and
+// writes score, penalties, status, and knockout advancer. The free tier lags
+// in-play matches by a few minutes — API-Football refreshes every ~15s, but
+// its free plan can't serve the current season at all. One request covers the
+// whole competition and matches are joined by fdId. Unlike
 // syncFromFootballData it touches no teams, kickoffs, venues, or squads.
 export async function syncLiveScores(): Promise<{ updated: number }> {
   const now = new Date();
@@ -193,55 +188,36 @@ export async function syncLiveScores(): Promise<{ updated: number }> {
     where: { status: { not: MatchStatus.FINISHED }, kickoff: { lte: now } },
     select: {
       id: true,
-      kickoff: true,
+      fdId: true,
       stage: true,
       homeTeamId: true,
       awayTeamId: true,
-      homeTeam: { select: { name: true } },
-      awayTeam: { select: { name: true } },
     },
   });
   if (matches.length === 0) return { updated: 0 };
 
-  const live: LiveMatch[] = matches.map((m) => ({
-    id: m.id,
-    kickoff: m.kickoff,
-    homeName: m.homeTeam?.name ?? "",
-    awayName: m.awayTeam?.name ?? "",
-    stage: m.stage,
-    homeTeamId: m.homeTeamId,
-    awayTeamId: m.awayTeamId,
-  }));
-
-  // UTC date per kickoff (usually one); the date feed returns every match that
-  // day with its current status, including matches that just ended.
-  const dates = new Set(live.map((m) => m.kickoff.toISOString().slice(0, 10)));
-  const fixtures = (await Promise.all([...dates].map(fetchWorldCupFixturesByDate))).flat();
+  const fdById = new Map((await fetchWorldCupMatches()).map((m) => [m.id, m]));
 
   let updated = 0;
-  for (const m of live) {
-    const fixture = pickFixture(m, fixtures);
-    if (!fixture) continue;
-    const status = mapApiFootballStatus(fixture.statusShort);
+  for (const m of matches) {
+    const fd = fdById.get(m.fdId);
+    if (!fd) continue;
+    const status = mapFdStatus(fd.status);
     if (!status) continue;
+    const result = fdResult(fd.score);
+    if (!result) continue;
     // Only knockouts have an advancer; leave it untouched (undefined → Prisma
-    // skips it) until the fixture reports a winning side, including ET/penalties.
+    // skips it) until FD names a winner, which it only does once the match is
+    // decided, including extra time and shootouts.
     const advancingTeamId =
-      fixture.winnerSide && isKnockout(m.stage)
-        ? fixture.winnerSide === "HOME"
+      isKnockout(m.stage) && fd.score.winner && fd.score.winner !== "DRAW"
+        ? fd.score.winner === "HOME_TEAM"
           ? m.homeTeamId
           : m.awayTeamId
         : undefined;
     const res = await prisma.match.updateMany({
       where: { id: m.id },
-      data: {
-        homeScore: fixture.homeGoals,
-        awayScore: fixture.awayGoals,
-        penaltyHome: fixture.penaltyHome,
-        penaltyAway: fixture.penaltyAway,
-        status,
-        advancingTeamId,
-      },
+      data: { ...result, status, advancingTeamId },
     });
     updated += res.count;
   }
